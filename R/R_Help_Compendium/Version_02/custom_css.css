@@ -1,0 +1,43 @@
+<style type="text/css">
+
+
+  pre {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 85%;
+  }
+
+  h1 {
+    font-size: 190%;
+    font-weight: normal;
+    font-style: normal;
+    color: rgb(25,50,125);
+  }
+  
+  h2 {
+    font-size: 160%;
+    font-weight: normal;
+    font-style: normal;
+    color: rgb(25,50,125);
+  }
+  
+  h3 {
+    font-size: 130%;
+    font-weight: normal;
+    font-style: normal;
+    color: rgb(25,50,125);
+  }
+  
+  h4 {
+    font-size: 100%;
+    font-weight: normal;
+    font-style: normal;
+    color: rgb(25,50,125);
+  }
+
+  blockquote {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-style: normal;
+    line-height: 30px;
+  }
+
+</style>

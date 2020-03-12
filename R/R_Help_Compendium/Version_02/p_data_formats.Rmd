@@ -1,0 +1,52 @@
+
+# Read and write R data formats
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+*RData*, *RDS* and *feather* are binary file formats optimized for speed and/or file size (via compression). The examples below demonstrate the differences between them and the functions used to handle them.
+```{r}
+x = c(1:5); y = c(T,T,F,T,F); z = letters[1:5]
+df <- tibble(x, y, z); print(df)
+```
+
+
+## RData format
+
+*RData* (also called *RDA*) files are one of the two R's native binary formats. We use the `save` function which takes any number of R objects  (RData can store more than one), and writes them to an RData file. Note that there is also a special version of this function, `save.image`, which saves all objects in the current workspace.
+```{r}
+save(x, y, file = "testdat.RData") # Saves objects 'x' and 'y' into one file
+save.image(file = "testing.RData")  # Saves all objects currently loaded into one file
+```
+
+Note that `save` saves all the specified objects with their names. When we `load` them into the workspace, they will overwrite objects that are already there and have the same name, so caution is warranted.
+```{r}
+rm(list = ls())
+load("testdat.RData")
+ls()
+load("testing.Rdata") # Note that this overwrites x, y objects & adds two more
+ls()
+```
+
+
+## RDS format
+
+*RDS* is the other R's native binary format. A single *RDS* file can store only one R object.
+```{r}
+saveRDS(x, file = "testdat.RDS") # Saves the object 'x' into an RDS file
+```
+
+As the object's name is not saved in the RDS file, when reading an RDS file the object that is being read has to be assigned one.
+```{r}
+newx <- readRDS(file = "testdat.RDS") # Saves the object 'x' into an RDS file
+```
+
+
+```{r message = FALSE, results = 'hide', echo = FALSE}
+# Delete files with extensions 'RData' and 'RDS' and the string 'test' in the name.
+
+filenames <- list.files(path = getwd(), full.names = TRUE,recursive = TRUE)
+file.remove( filenames[grepl("test.*\\.RData", filenames)] )
+file.remove( filenames[grepl("test.*\\.RDS", filenames)] )
+```

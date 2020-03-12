@@ -1,0 +1,38 @@
+# Machine Learning in R
+
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+
+datadir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Data"
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+```
+
+Note: Some of the ML-related stuff is in *p_train_test_models.Rmd*. Consider merging the contents into this file.
+
+
+## Package *mlbench*: a collection of ML problems and datasets
+
+The *mlbench* package contains a collection of artificial and real-world machine learning benchmark problems, including several data sets from the UCI repository. For the package documentation see <https://cran.r-project.org/web/packages/mlbench/mlbench.pdf>. For the U of California in Irvine (UCI) machine learning repo see <https://archive.ics.uci.edu/ml/index.php>.
+
+```{r}
+# This returns the list of all datasets in the package
+data(package = "mlbench")
+
+# This returns the matrix containing the datasets' names and short description
+data(package = "mlbench")$results[ , c("Item","Title")]
+
+# Load specific datasets from the package into the workspace
+data(list = c("BostonHousing", "Glass", "Ozone"), package = "mlbench")
+
+```

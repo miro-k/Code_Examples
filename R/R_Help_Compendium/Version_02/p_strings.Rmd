@@ -1,0 +1,160 @@
+
+# Working with strings
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+```
+
+## Basics
+
+Generate a data frame that contains a vector of documents and document ID.
+```{r echo = FALSE}
+txt1 <- paste( "She was speaking to a crowd of Ottawa-area Conservatives met at a pub",
+               "$123.00 of OPAY_1",
+               "overlooking the Rideau River one weeknight last month. Refering to the",
+               "time last fall when Liberal MPs on the House of Commons status of women",
+               "OPAY_2 of 123.00 DOLLARS",
+               "committee decided to block her nomination as chair over her views on",
+               "abortion, ")
+
+txt2 <- paste( "The gender-balanced budget. Feminist international assistance policy, ",
+               "UPAY_1 of $ 123.00",
+               "The proposed gender chapter in the North American Free Trade Agreement, ",
+               "$123.- dollar UPAID_2",
+               "The G7 gender equality advisory council, featuring none other than Nobel",
+               "123 DOLLARS",
+               "Peace Prize winner Malala Yousafzai, ")
+
+txt3 <- paste( "Rachel Curran, who served as a director to Conservative prime minister",
+               "CAD 123 OPAID_3",
+               "Stephen Harper, said that as a long-time feminist, the commitment to",
+               "OPAID_4 123.00 CAD",
+               "championing the rights of women was one of the things she liked about",
+               "123 CAD OPAY_5",
+               "Trudeau when he came to power. Now, she thinks the Liberals are using",
+               "feminism as a political weapon, " )
+
+txt4 <- NA
+txt5 <- NA
+txt6 <- paste(txt1, txt2, "OPAY_6" )
+txt7 <- paste(txt2, txt3, "OPAY_7" )
+txt <- unlist(lapply(paste0("txt", 1:7), get))
+# rm(list = ls(pattern = "^txt[0-9]{1}"))
+```
+
+```{r}
+df <- tibble(doc = txt) %>%
+   mutate(docid = paste0("doc", 1:n())) %>% 
+   select(docid, doc)
+
+# rm(txt)
+```
+
+Print the documents (the long-text variable in the data frame) on the screen.
+```{r}
+print_docs(df$doc, wrap = 80)
+```
+
+From each document, extract a given regex pattern. The extract is placed in a data frame variable which is itself of class list.
+```{r}
+rgx <- "\\${1}[:digit:]+\\.*[:digit:]*"
+# rgx <- "OPA(Y|ID)_\\d+"
+
+df <- df %>%
+   mutate( cnt_rgx = str_count(doc, rgx),
+           xtr_rgx = str_extract_all(doc, rgx) ) %>%
+   select( docid, cnt_rgx, xtr_rgx, doc )
+
+df
+df$xtr_rgx %>% str
+
+# rm(rgx)
+```
+
+Extract the `xtr_` variable (class *list*) and 'unpack' it into a *matrix*. Note that the vectors in the list are not of the same length; hence, the shorter vectors have to be 'padded' with NA values.
+```{r}
+xtr_list <- df %>% pull(xtr_rgx)
+
+max_n_xtracts <- lapply(xtr_list, length) %>% unlist %>% max
+xtr_mat <- do.call(rbind, lapply(xtr_list, `[`, seq_len(max_n_xtracts)))
+colnames(xtr_mat) <- paste0("xtr", 1:max_n_xtracts)
+rownames(xtr_mat) <- paste0("doc", 1:length(xtr_list))
+xtr_mat
+
+# rm(list = ls(pattern = "^(xtr_|max_n_xtracts)"))
+```
+
+
+
+
+
+
+```{r}
+xtr_doc <- df %>% pull(doc)
+
+sentlst <- lapply(xtr_doc, str_split, boundary("sentence")) %T>% str(nchar.max = 25)
+wordlst <- lapply(xtr_doc, str_split, boundary("word"))  %T>% str(nchar.max = 50)
+
+for (i in seq_along(sentlst)){
+
+   x <- sentlst[[i]] %>% unlist
+   
+   for(j in seq_along(x)) {
+      
+      x[j] %>% str_wrap(width = 90) %>% cat; cat("\n\n")
+   }
+}
+
+# rm(xtr_doc, sentlst, wordlst, i, j, x)
+```
+
+
+
+
+```{r}
+# rm(list = ls(pattern = "^txt[0-9]{1}"))
+# rm(txt)
+# rm(rgx)
+# rm(list = ls(pattern = "^(xtr_|max_n_xtracts)"))
+# rm(xtr_doc, sentlst, wordlst, i, j, x)
+```
+
+
+## Tokenize texts using the *tokenizers* and *stringr* packages (MOVED FROM 99_miscellaneous.Rmd)
+
+```{r}
+txt <- paste("Two sentences, and they're separated by a comma.",
+             "A single sentence followed by a new line.",
+             "\n",
+             "Here's new paragraph; it starts on a new line.")
+txt
+```
+
+Note that the tokenizing functions from the *tokenizers* package turns the text into lowercase by default. Also note that the functions return lists, so `unlist` has to be applied to get vectors instead.
+```{r}
+sent1 <- tokenize_sentences(txt, lowercase = FALSE) %>% unlist; sent1
+word1 <- tokenize_words(txt, lowercase = FALSE) %>% unlist; word1
+```
+
+Note that sentence tokenizing function from *stringer* keeps leading/trailing spaces; the *str_trim* function has to be applied to remove them. Also note that the functions return lists, so `unlist` has to be applied to get vectors instead.
+```{r}
+sent2 <- str_split(txt, boundary("sentence")) %>% lapply(str_trim) %>% unlist; sent2
+word2 <- str_split(txt, boundary("word")) %>% unlist; word2
+```
+
+If the functions arguments are adjusted appropriately, their returned outcomes are identical.
+```{r}
+tibble(w1 = unlist(word1), w2 = unlist(word2), eq = unlist(word1) == unlist(word2))
+tibble(w1 = unlist(sent1), w2 = unlist(sent2), eq = unlist(sent1) == unlist(sent2))
+```
+

@@ -1,0 +1,208 @@
+
+# Descriptive and summary statistics
+
+
+```{r}
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+# funcdir <- "F:/Examples/R/Functions"
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+```
+
+
+Let's start with the following modified *mtcars* dataset:
+```{r echo = FALSE}
+df <- mtcars %>%
+   mutate(ncyl = as.integer(cyl),
+          automat = ifelse(am == 0, TRUE, FALSE),
+          sizegrp = ifelse(disp <= 120, "small",
+                           ifelse( disp >= 326, "big", "medium"))) %>%
+   select(mpg, wt, ncyl, automat, sizegrp) %>% 
+   as_tibble
+
+str(df)
+```
+
+
+## Summarizing numeric variables
+
+
+### Summary statistics using base R functions
+
+The *summary* function returns a simple table of summary statistics for all/selected variables:
+```{r}
+summary(object = df)
+```
+
+The *agregate* function returns a statistics (specified by *FUN* argument) for selected variables by selected categories/classes/factors.
+```{r}
+aggregate(x = df[c("mpg", "wt", "ncyl")],
+          by = list(auto = df$automat, size = df$sizegrp),
+          FUN = mean)
+
+aggregate(x = df[c("mpg", "wt", "ncyl")],
+          by = df[c("automat", "sizegrp")], # An alternative way to specify "by" groups
+          FUN = mean)
+```
+
+The *aggregate* function can only return one statistic at a time. The following example shows how it could be used to calculate more than one statistic using *lapply*. One could also use it in a for-loop to achieve the same effect.
+```{r}
+myfct <- function(fct) { aggregate(x = df[c("mpg", "wt", "ncyl")],
+                                   by = list(auto = df$automat, size = df$sizegrp),
+                                   FUN = fct) }
+
+stats <- c("mean", "sd") # Vector of statistics to be calculated
+stats_list <- lapply(stats, myfct)
+names(stats_list) <- stats
+stats_list
+```
+
+
+### Collapse a data frame into summary statistics using *dplyr*
+
+Collapse a data frame into another data frame (a table of sorts) of selected summary statistics for selected variables using the *summarize* (or *summarise*, both are possible) function
+```{r}
+df %>%
+   summarize(
+      count = n(),
+      mpg_nonmiss = sum(!is.na(mpg)),
+      mpg_mean = mean(mpg, na.rm = TRUE),
+      mpg_sd = sd(mpg, na.rm = TRUE)
+   )
+```
+
+More frequently, *summarize* is used together with *group_by*. In the example below we form groups and calculate selected statistics by those groups (collapse a data frame into a table of summary statistics by group).
+```{r}
+df %>%
+   group_by(automat, sizegrp) %>%
+   summarize(
+      count = n(),
+      mpg_nonmiss = sum(!is.na(mpg)),
+      mpg_mean = mean(mpg, na.rm = TRUE),
+      mpg_sd = sd(mpg, na.rm = TRUE)
+   )
+```
+
+Here is a more involved example of a summary table. The table (again, technically a data frame) is created and reshaped into a more convenient format (see the section on reshaping with *tidyr* for more information).
+```{r}
+df %>%
+   group_by(automat, sizegrp) %>%
+   summarize(
+      count = n(),
+      mpg_nonmiss = sum(!is.na(mpg)),
+      mpg_mean = mean(mpg, na.rm = TRUE),
+      mpg_sd = sd(mpg, na.rm = TRUE),
+      ncyl_nonmiss = sum(!is.na(mpg)),
+      ncyl_mean = mean(mpg, na.rm = TRUE),
+      ncyl_sd = sd(mpg, na.rm = TRUE)
+   ) %>% 
+   gather(key = KEY, value = VALUE, -c(automat, sizegrp, count)) %>%
+   separate(KEY, into = c("variable", "KEY"), sep = "_") %>%
+   spread(KEY, VALUE) %>% 
+   select(variable, automat, sizegrp, everything()) %>% 
+   arrange(variable, automat, sizegrp)
+```
+
+
+### Summary statistics using the *psych* package
+
+The *psych* package provides the functions *describe* to generate lists of several summary statistics, In effect, this is similar to collapsing a data frame as shown above:
+```{r}
+df[,c("mpg", "wt")] %>% 
+   describe %>%
+   as_tibble
+```
+
+The *describeBy* version of the function generates summary statistics by categories from one or more variable. Note that the groups can be defined in more than one way (`df[c("automat", "sizegrp")]` or as `list(df$automat, df$sizegrp)`). It takes additional steps to unpack the result into a convenient data frame. Note that it is important to specify `mat = TRUE` as the output is a matrix, which is easier to deal with than with a list.
+```{r}
+df[,c("mpg", "wt")] %>%
+   describeBy(group = df[c("automat", "sizegrp")], mat = TRUE) %>%
+   rownames_to_column(var = "row_name") %>% 
+   as_tibble
+```
+
+There are other R packages (e.g., *Hmisc*) that also provide similar functions to create summary statistics tables.
+
+
+## Summarizing categorical variables
+
+Let's start with a simple data frame that contains 3 categorical variables
+```{r echo = FALSE}
+df <- tibble(x = c("a","a","a","b","b","c"),
+             y = c("d","e","d","e","d","e"),
+             z = c("f","f","f","g","g","g"))
+df
+```
+
+
+### Univariate & multidimensional tabulations using base R
+
+Functions *table* and *prop.table* produce the category frequency (count) and proportion tables, respectively:
+```{r}
+table(df$x, useNA = "ifany") # Frequency table (counts)
+table(df$x, useNA = "ifany") %>% prop.table() # Proportions
+```
+
+If 2 or more variables are specified in *table*, the result will be a cross-tabulation.
+```{r}
+table(df$x, df$y, useNA = "ifany") # Frequency cross-tabulation for 2 variables
+table(df$x, df$y, useNA = "ifany") %>% prop.table() # Proportions
+```
+
+Row and column marginals can be obtained usint the *margin.table()* function.
+```{r}
+table(df$x, df$y, useNA = "ifany") %>% margin.table(1) # Row-sum marginals
+table(df$x, df$y, useNA = "ifany") %>% margin.table(2) # Column-sum marginals
+```
+
+An alternative for creating cross-tabulations is the function *xtable*. One of the differences is that we need to specify variables into the cross-tab using the formula notation:
+```{r}
+xtabs(formula = ~ x + y, data = df)
+```
+
+Note that the tabs and cross-tabs above are class table. They can be coerced into a data frame. This generates a long-format distribution table. 
+```{r}
+table(df$x, df$y, df$z, useNA = "ifany") %>%
+   as.data.frame() %>% 
+   mutate(
+      Perc = round(Freq/sum(Freq), 3)
+   ) %>% 
+   rename(
+      x_cats = Var1,
+      y_cats = Var2,
+      z_cats = Var3
+   )
+```
+
+
+### User-defined custom tabulation function *tbl_freq()*
+
+Custom tabulation and cross-tab function called *tbl_freq* is a wrapper for the native R function *table()*. The function returns a data frame, but can only take one argument (one categorical variable), i.e., it can't do cross-tabulations.
+```{r}
+tbl_freq(df$x)
+```
+
+
+### Tabulations using the *CrossTable* function
+
+The *CrossTable* function from the *gmodels* package produces a nice-format table with both cell counts and proportions as well as with row and column marginals. The shortcoming is that the function can only produce cross-tabulation for at most 2 variables.
+```{r}
+tlist <- CrossTable(df$x, df$y)
+str(tlist)
+```
+
+The list that the function returns can be worked with further using the usual ways:
+```{r}
+tlist$t
+tlist$prop.row
+tlist$prop.col
+tlist$prop.tbl
+```
+

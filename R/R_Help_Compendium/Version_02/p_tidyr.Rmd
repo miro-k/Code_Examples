@@ -1,0 +1,136 @@
+
+# Data manipulation using *tidyr*
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+# funcdir <- "F:/Examples/R/Functions"
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+```
+
+
+## Reshaping data frames
+
+Also see <https://mvuorre.github.io/toolbox/reshape.html>. Let's start with the folowing wide-format data frame:
+```{r}
+# Generate a wide format data frame (silently)
+
+df_wide <- tibble( g1 = c(rep(FALSE,5), rep(TRUE,5)),
+              g2 = c(rep(1,4), rep(2,3), rep(3,3)),
+              x = sample(10),
+              y_2009 = runif(10) %>% round(2),
+              y_2010 = runif(10) %>% round(2),
+              z_2010 = runif(10) %>% round(2),
+              z_2011 = runif(10) %>% round(2) )
+df_wide
+```
+
+
+
+### Reshaping from wide to long
+
+The reshaping into a (one type of) a long-format data frame is achieved by applying a sequence of the following functions. First we use the function *gather* which takes two or more columns (variables) and collapses them into key-value pairs. The values in the columns that are not being collapsed are being duplicated as needed. In our example, the variables *y_YYYY* and *z_YYYY* will be collapsed, while *g1*, *g2* and *x* are assumed invariant over years and, thus, are not to be "gathered". Note that a new variable called *STUB_SUFFIX* is created from the names of the variables that are being gathered, and the corresponding values will be in a new variable called *VALUE*. 
+```{r}
+#cols_to_gather <- -c(g1, g2, x) # Alternative to the above
+
+df_wide %>%
+   gather(key = STUB_SUFFIX, value = VALUE, c(y_2009, y_2010, z_2010, z_2011))
+
+```
+
+Note that there are several ways to specify which columns are to be gathered. We could use the column number (position index) perhaps extracted using string functions and regex on the column names, or we could directly specify the names without quotes as an argument in the *gather* function (as shown above), and we could also use the negative selection via *-c()* function:
+```{r}
+# df_wide %>% gather(key = STUB_SUFFIX, value = VALUE, grep(pattern = "^(y|z)_", names(df_wide)))
+# df_wide %>% gather(key = STUB_SUFFIX, value = VALUE, -c(g1, g2, x))
+```
+
+In the next step, we use the *separate* function to split the variable names in *STUB_SUFFIX* into two columns, *STUB* (basically variable names, *y* and *z*, in our case) and *SUFFIX* (containing the year).
+```{r}
+df_wide %>%
+   gather(key = STUB_SUFFIX, value = VALUE, -c(g1, g2, x)) %>% 
+   separate(STUB_SUFFIX, into = c("STUB", "SUFFIX"), sep = "_")
+```
+
+As the *STUB* variable still contain two variable names, we want to *spread* those into separate columns. Note that *NA* is filled appropriately.
+```{r}
+df_long <- df_wide %>%
+   gather(key = STUB_SUFFIX, value = VALUE, -c(g1, g2, x)) %>% 
+   separate(STUB_SUFFIX, into = c("STUB", "SUFFIX"), sep = "_") %>% 
+   spread(STUB, VALUE); df_long
+```
+
+
+### Reshaping from long to wide
+
+Let's start with *df_long* data frame from the previous example, and reverse the process. First we use *gather* to collect the names of specified columns (*y* and *z*) in a new variable *STUB* and the corresponding values in a new variable *VALUE*.
+```{r}
+df_long %>% 
+   gather(key = STUB, value = VALUE, c(y, z))
+```
+
+In the next step, use the function *unite* to merge the two columns *STUB* and *SUFFIX* into a new single column *STUB_SUFFIX*. This creates a column of variable names.
+```{r}
+df_long %>% 
+   gather(key = STUB, value = VALUE, c(y, z)) %>% 
+   unite(col = STUB_SUFFIX, c(STUB, SUFFIX), sep = "_")
+```
+
+Lastly, we use *spread* to create separate columns for the *z_YYYY* and *y_YYYY* variables. The function uses the values from *STUB_SUFFIX* for column names and the values from *VALUES* to populate the columns.
+```{r}
+df_long %>% 
+   gather(key = STUB, value = VALUE, c(y, z)) %>% 
+   unite(col = STUB_SUFFIX, c(STUB, SUFFIX), sep = "_") %>% 
+   spread(key = STUB_SUFFIX, value = VALUE)
+```
+
+Note the columns *y_2011* and *z_2009* are all missing values. This is indeed correct, but we could avoid it by dropping these missing values in the *gather* step by specifying *na.rm = TRUE*.
+```{r}
+df_long %>% 
+   gather(key = STUB, value = VALUE, c(y, z), na.rm = TRUE) %>% 
+   unite(col = STUB_SUFFIX, c(STUB, SUFFIX), sep = "_") %>% 
+   spread(key = STUB_SUFFIX, value = VALUE)
+```
+
+
+## Combining data frames using SQL-style joins
+
+Also see <https://r4ds.had.co.nz/relational-data.html> for more.
+
+```{r}
+dfx <- tibble(id = as.character(c(1:3,6,7)), x = paste0("x",id)) %T>% print
+dfy <- tibble(id = as.character(c(1,3:6)), y = paste0("y", id)) %T>% print
+```
+
+### *inner_join()*
+
+```{r}
+inner_join(dfx, dfy, by ="id")
+```
+
+### *full_join()*
+
+```{r}
+full_join(dfx, dfy, by = "id")
+```
+
+### *left_join()*
+
+```{r}
+left_join(dfx, dfy, by = "id")
+```
+
+### *rigth_join()*
+
+```{r}
+right_join(dfx, dfy, by = "id")
+```
+

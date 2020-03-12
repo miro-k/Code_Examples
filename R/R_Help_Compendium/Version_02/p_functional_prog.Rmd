@@ -1,0 +1,125 @@
+
+# Functional programming
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+See <http://adv-r.had.co.nz/Functionals.html> for a more thorough treatment of functionals and functional programming.
+
+The *apply* family contains higher-order functions that apply other functions to slices of data from matrices, arrays, lists and data frames. These functions allow crossing the data in a number of ways, and thus avoid explicit use of loop constructs. They act on an input list, matrix or array and apply a named function with one or several optional arguments.
+
+
+## Mapping to vectors: *vapply*
+
+Use *vapply* to map a function to each element of a given vector. Note that we have to specify which class of vector is to be returned (logical in the example below).
+```{r}
+vapply( X = c(-2, -1, 0, 1, 2),
+        FUN = function(x) { x >= 0 },
+        FUN.VALUE = logical(1) )
+```
+
+
+## Mapping to arrays and data frames: *apply*
+
+We can map a function to one or more dimensions of a given array (matrices and data frames are considered special cases of arrays). In the following example we map a function to both rows and columns (i.e., every element) of a matrix by setting `MARGIN = c(1,2)` (note that dimension 1 is rows, 2 is columns).
+```{r}
+m <- matrix(-5:9, ncol = 3)
+apply( X = m, FUN = function(x) { x >= 0 }, MARGIN = c(1,2) )
+```
+
+Some functions, such as the *sum* take vectors as arguments. This means we can apply them to a whole dimension (row or column) of a matrix or data frame.
+```{r}
+apply( X = m, FUN = sum, MARGIN = 2 )
+```
+
+A more interesting example: create a function that will normalize every observation so that their mean = 0 and sd = 1. The function is applied to every column (vector) of a given data frame or matrix.
+```{r}
+normalize <- function(x) { (x - mean(x)) / sd(x) }
+df <- as_tibble(matrix(1:15, ncol = 3))
+xn <- apply(X = df, FUN = normalize, MARGIN = 2)
+
+rbind(Mean = apply(xn, FUN = mean, MARGIN = 2),
+      `St. dev.` = apply(xn, FUN = sd, MARGIN = 2))
+```
+
+
+## Mapping to lists: *lapply*
+
+The function *lapply* maps a function to every element of a given list. The result is another list, each element of which is the result of applying a given function.
+```{r}
+l <- list( x = c(1:3), y = c(T,T,F,F), z = letters[1:3])
+lapply(X = l, FUN = class)
+```
+
+Similarly to *apply*, *lapply* can be used with a data frame as an argument, however, the returned object is a list. In the example below, note the use of *na.rm*, an additional argument for the *sum* function, and the use of *unlist* to change the returned list into a matrix.
+```{r}
+df <- tibble( x = 1:5, y = c(1, 2, NA, NA, 5)); df
+lapply(X = df, FUN = sum) %>% unlist
+lapply(X = df, FUN = sum, na.rm = TRUE) %>% unlist
+```
+
+
+## Mapping by groups: *aggregate*
+
+The *aggregate* function splits the data into subsets, applies a function to each (typically a summary statistic one), and returns the result. Note that *tapply* seems to be an equivalent function but I haven't had a good experience with it. I the following example, we apply *sum* to two selected variables separately for each unique combination of the categories in *g1* and *g2* variables.
+```{r}
+df <- tibble( g1 = c("a","a","a","b","b","b","b"),
+              g2 = c("c","c","d","c","d","c","d"),
+              x = c(1:7),
+              y = x*10 ); df
+
+# unique(expand.grid(df$g1, df$g2)) # All unique groups
+
+aggregate(x = df[c("x","y")], by = df[c("g1","g2")], FUN = sum)
+```
+
+
+## Mapping a function over multiple inputs: *Map*
+
+Note *mapply* performs the same way as *Map* and, additionally, tries to simplify the returned object. It's better to use *Map* along with *unlist* and control the outcome. The following example shows how to make three random draws from a normal distribution. The draws differ in the number of observation, and in the mean and standard deviation of the distribution, i.e., the *rnorm* function is supplied with 3 vector arguments over which it needs to be mapped. The result is a list that contain 3 vectors.
+```{r}
+nobs <- c(5, 10, 15)
+mu   <- c(-5, 0, 10)
+sig  <- c(0.25, 1, 1.75)
+
+Map(f = rnorm, n = nobs, mean = mu, sd = sig)
+
+# When using an anonymous function
+# Map(function(n, mean, sd) rnorm(n, mean, sd), n = nobs, mean = mu, sd = sig)
+
+```
+
+
+## Mapping multiple functions over a single input
+
+The strategy is to create a single custom function that contains all the multiple functions we want to apply to the selected object. The example below uses a single user-defined function that collects several summary stats function. This function is then applied to the objects of choice.
+```{r}
+x <- runif(n = 900, min = 0, max = 10)
+m <- matrix(x, ncol = 3)
+df <- as_tibble(m) 
+
+calculate_stats <- function(x) {
+   
+   stopifnot(is.numeric(x))
+   
+   mean_x   <- mean(x)
+   sd_x     <- sd(x)
+   min_x    <- min(x)
+   max_x    <- max(x)
+   
+   round(rbind(mean_x, sd_x, min_x, max_x), 2)
+}
+
+calculate_stats(x) # Apply to a vector
+apply(m, FUN = calculate_stats, MARGIN = 2) # Apply to matrix cols
+apply(df, FUN = calculate_stats, MARGIN = 2) # Apply to df cols (result is a matrix)
+lapply(df, FUN = calculate_stats) # Apply to df cols (result is a list)
+
+# The list can be truned into a data frame
+l <- lapply(df, FUN = calculate_stats)
+do.call(cbind.data.frame, l)
+
+```
+
+

@@ -1,0 +1,187 @@
+
+# Miscellaneous uncategorized R code
+
+
+## Function *do.call*
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+
+### Iterating over functions that take the same list of arguments
+
+Generally, the functin *do.call* serves to pass a list of arguments to a function. This helps, for example, when we need to loop over several functions that take in the same list of arguments.
+
+The function `do.call` allows us to pass a list of arguments to a function. The following example shows how we can pass the same list of arguments to three different functions. First, we could evaluate the respective functions one by one.
+```{r results = 'hide'}
+dat <- c(1, 2, NA, 4, NA, 6, NA, 8, 9, 10)
+mean(x = dat, na.rm = TRUE); var(x = dat, na.rm = TRUE); sd(x = dat, na.rm = TRUE)
+```
+
+Instead of one-by-one evaluation we can pass one list of arguments to several functions and do so in a loop. Note that the functions can be listed either directly by their names or by their names enclosed in quotes (strings).
+```{r}
+argums <- list(x = dat, na.rm = TRUE)
+funcs  <- list("mean", "var", "sd"); funcs <- list(mean, var, sd)
+for (i in funcs){ do.call(what = i, args = argums) %>% print }
+```
+
+
+### Generate a matrix/data frame from a list of vectors
+
+The following works for row/column binds of vectors extracted from a list. Vectors can have different lengths (number of elements); for shorter vectors, `NA` will be added in the place of missing elements. If the vectors are of different type, the resulting matrix will be of the most general type available (character in the example below).
+```{r results = 'hide'}
+vlist <- list( v1 = c(T, F, T),
+               v2 = 1:5,
+               v3 = letters[1:7])
+
+maxlength <- lapply(vlist, length) %>% unlist %>% max # Length of the longest vector
+```
+
+```{r}
+argums <- lapply(vlist, `[`, seq_len( maxlength ))
+do.call(what = rbind, args = argums) # Vectors into rows
+do.call(what = cbind, args = argums) # Vectors into columns
+```
+
+If the vectors are combined into a data frame using the `tibble` function they keep their type.
+```{r}
+do.call(what = tibble, args = argums)
+```
+
+If the base R function `data.frame` is used instead, character vectors would become factors by default, so the additional `stringsAsFactor = FALSE` argument has to be added to the list of arguments.
+```{r}
+do.call(what = data.frame, args = list(stringsAsFactors = FALSE, argums)) %>% as.tibble
+```
+
+
+## Functions *na.omit* and *na.exclude* for dealing with NAs
+
+We can select non-missing values (i.e., drop missing values) from a vector using the subsetting `[` notation.
+```{r}
+x <- c(1:10)*0.1; x[3] <- x[5] <- x[7] <- NA; x
+x[!is.na(x)]
+```
+
+There are also functions that can do the same thing, and can be easily used in, e.g., pipelines. They are *na.omit* and *na.exclude*. They both produce the original vector pruned of NAs, and add attributes along. If *na.omit* removes cases, the element numbers of the removed cases are stored in the "na.action"" attribute of the result, and the attribute is of class "omit"; *na.exclude* differs in the class of the "na.action" attribute, which is "exclude". Thus, the result of the two functions may give different behaviour in certain functions (see the documentation).
+```{r}
+x %>% na.omit %>% str
+x %>% na.exclude %>% str
+```
+
+The function *attributes* allows us to set the attributes to none if we want to.
+```{r}
+y <- x %>% na.omit; y
+attributes(y) <- NULL; y
+```
+
+
+## Functions *any* and *all*
+
+These functions take a logical vector as an argument; *any* returns *TRUE* if at least one of the values in the input vector is *TRUE*; *all* returns *TRUE* if all the values in the input equal *TRUE*.
+```{r}
+x <- c(TRUE, FALSE, TRUE); any(x); all(x)
+```
+
+
+## Get object's name or content as a string
+
+We may need to get a string from an object's name, e.g., when we form longer strings using the *paste* or similar functions.
+
+```{r}
+x <- c(1, 2, 3)
+paste("object", deparse(substitute(x)), "is a vector")
+
+paste(deparse(substitute(x)), "is a vector", deparse(x))
+```
+
+
+## Timing and benchmarking
+
+
+### Using *proc.time()* function
+
+The *proc.time()* function returns the *user*, *system* and *elapsed* time measurements. From the practical point of view, we're usually interested in the actual elapsed time (how long it really takes to get some piece of code done).
+
+The following example is timing how long it takes to create a vector of column averages from a large matrix *x* using a *for-loop* and using *lapply* (function mapping).
+```{r}
+x <- matrix(runif(1e6), ncol = 1e3)
+
+t0 <- proc.time() 
+   out_loop <- c()
+   for (i in seq_len(ncol(x))) { out_loop[[i]] <- mean(x[ , i]) }
+proc.time() - t0
+
+t0 <- proc.time() 
+   out_lapply <- lapply(list(x), colMeans) %>% unlist
+proc.time() - t0
+```
+
+
+### User-defined custom function *timer()*
+
+The function is based on R's function *system.time()* which, in turn, calls the *proc.time()*. The arguments are *which_time* which allows the user to choose from three types of duration: *elapsed*, *user* or *system* time; the three dots ... represent all the code (presumably more than one line of it) that is to be executed and timed. The function returns the selected type of duration (how long it took to execute the code) in seconds.
+
+The function definition is:
+```{r}
+timer <- function( ..., which_time = "elapsed" ) {
+   
+   duration <- system.time( eval( ... ) )
+   
+   if (which_time == "elapsed") { out <- duration["elapsed"] }
+   if (which_time == "user") { out <- duration["user.self"] }
+   if (which_time == "system") { out <- duration["sys.self"] }
+
+   return(out)
+}
+```
+
+The following example is the same as the one used in the previous section. Note the use of { ... } braces to enclose multiple lines of code that are to be executed. The braces are not required if there's only one line of code.
+
+```{r}
+x <- matrix(runif(1e8), ncol = 1e3)
+
+t_loop <- timer( which_time = "elapsed",
+                 {
+                    out_loop <- c()
+                    for (i in seq_len(ncol(x))) { out_loop[[i]] <- mean(x[ , i]) }
+                  } )
+
+t_lapply <- timer( out_lapply <- lapply(list(x), colMeans) %>% unlist )
+
+round(t_loop/t_lapply, 2)
+```
+
+
+### The *microbenchmark* package
+
+The *microbenchmark* function from the package of the same name is a convenient way to compare execution time for several processes based on a specified number of runs (replications). Note that we can name the processes for the result table (the use of backticks is only necessary if the name contains spaces). We can also assign the result of the *microbenchmark* to an R object and use it to retrieve min, max, mean and other times.
+```{r}
+mb <- microbenchmark(
+   times = 3L,  # Number of replications
+   unit = "s",  # Time unit (second)
+   `for loop` = for (i in seq_len(ncol(x))) {out_loop[[i]] <- mean(x[ , i])},
+   lapply = out_lapply <- lapply(list(x), colMeans) %>% unlist
+   ) %>% summary
+
+cat("On average, the loop is", round(mb$mean[1]/mb$mean[2], 1), "times slower than lapply.")
+```
+
+
+## Function *sink* to send R output to an external file
+
+```{r}
+
+sink(file = "test_sink.txt", # Direct the output (below) into an external txt file
+     append = FALSE,
+     type = c("output", "message"))
+
+print("Here is something I want to save in the test_sink.txt file.")
+
+sink() # Return output to the terminal
+
+
+
+
+```
+

@@ -1,0 +1,225 @@
+
+# DT package (DataTable.js library in R)
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+options(DT.options = NULL) # Reset global options for 'DT::datatable()' to defaults
+```
+
+To illustrate its functionality, let us generate a data frame *df* that contains a variety of variable classes.
+```{r echo = FALSE}
+nobs <- 100
+
+words <- c("plan","arc","futuristic","trucks","team","frame","odd","sail") %>% 
+   gtools::permutations(n = length(.), r = 3, v = ., repeats.allowed = FALSE) %>% 
+   apply(., MARGIN = 1, FUN = paste, collapse = " ")
+   
+
+df <- tibble(
+   date          = as.Date(1:nobs, origin = "2018-05-15"),
+   n_of_items    = runif(nobs, min = 1, max = 5.5) %>% round(0) %>% as.integer,
+   class         = sample(c("c1", "c2", "c3"), nobs, replace = TRUE) %>% as.factor,
+   subclass      = sample(paste0("subc", 1:4), nobs, replace = TRUE) %>% as.factor,
+   best_in_class = runif(nobs, min = 0, max = 1) %>% round(0) %>% as.logical,
+   amount_in_cad = round(runif(nobs, min = 500, max = 5000), 3),
+   amount_in_usd = round(runif(nobs, min = 500, max = 5000), 3),
+   growth_rate   = round(runif(nobs, min = -0.5, max = 2), 3),
+   some_strings  = sample(words, nobs, replace = TRUE)
+   )
+```
+
+```{r}
+str(df)
+```
+
+
+## Initialization options
+
+The default settings renders a data table as follows:
+```{r}
+options(DT.options = NULL) # Reset global options to defaults
+datatable(df)
+```
+
+The function *datatable* from the *DT* package creates an HTML table following default settings for the format. However, the *DataTables.js* library has a large number of initialization options, which make it very flexible to customize tables. We can specify these options in an R list, and the *datatable* function will automatically convert them to JSON (needed by *DataTables.js*).
+
+Let's define some custom initialization options: (1) display only the first 5 rows, (2) rename the *sSearch* element (the search/filter window) to *Filter:*, (3) enable case-insensitive search using  regular expressions, (4) order observations by the values of the 3rd (ascending) and 4th (descending) columns.
+```{r}
+custom_options <- list( # (1)
+                        pageLength = 5,
+                        # (2)
+                        language = list(sSearch = "Filter:"),
+                        # (3)
+                        search = list(regex = TRUE, caseInsensitive = FALSE),
+                        # (4)
+                        order = list(list(3, "asc"), list(4, "desc")) )
+```
+
+The options can be specified either locally (for a single specific table, within one instance of the *datatable* function)
+```{r}
+datatable(df, options = custom_options ) # Single-table application
+```
+or globally for all data tables by including *options(DT. options = ...)* as a standalone line of code, or by including it into specs for any specific table.
+```{r}
+options(DT.options = custom_options ) # This will apply to all tables from this point on
+```
+
+
+## Additional options
+
+We can change specific elements of the format by tweaking the various options in the *datatable* function. For example, below we (1) hide the row names, (2) change the format of the column names to uppercase and remove underscores (note that this is only a cosmetic change that doesn't change the underlying variable names), (3) add a filter to each column, and (5) make the table cells editable.
+```{r}
+dt_01 <- df %>%
+   datatable(
+      # (1)
+      rownames = FALSE,
+      # (2)
+      colnames = gsub("_", " ", colnames(df)) %>% toupper,
+      # (3)
+      filter = list(position = "top"),
+      # (4)
+      editable = TRUE
+      ); dt_01
+```
+
+
+### Format columns using helper functions
+
+Several helper functions allows us to tweak the format of columns. For example, below we set certain numeric variables as (1) a specific currency (Canadian dollars using symbol C$), (2) percentages, or (3) dates. We can also change aspects of the column style using attributes in *formatStyle*
+```{r}
+# Define some custom colors
+
+or1 <- rgb(218,  99,  93, maxColorValue = 255) # orange 1
+gb1 <- rgb(212, 217, 222, maxColorValue = 255) # grey-blue 1
+gb2 <- rgb(112, 128, 144, maxColorValue = 255) # grey-blue 2
+gb3 <- rgb( 54,  69,  79, maxColorValue = 255) # grey-blue 3
+
+dt_01 %>% 
+   formatCurrency("amount_in_cad", currency = "C$", digits = 1, dec.mark = ".") %>% 
+   formatPercentage("growth_rate", digits = 2) %>% 
+   formatDate("date", method = "toDateString") %>% 
+   formatStyle(columns = "growth_rate",
+               color = "white",
+               fontWeight = "bold",
+               backgroundColor = gb3)
+```
+
+
+### Cells
+
+```{r}
+dt_01 %>%
+   # Cell background color by class/category (2 or more categories)
+   formatStyle("class",
+               target = "cell",
+               backgroundColor =styleEqual(c("c1", "c2", "c3"), c("none", gb1, gb2))) %>%
+   # Cell and font colors based on the numeric values
+   formatStyle(columns = c("amount_in_cad", "amount_in_usd"),
+               color = styleInterval(c(1000, 3000), c("green", "red", "navy")),
+               backgroundColor = styleInterval(mean(df$amount_in_cad), c(gb1, or1))) %>%
+   # Bars inside cells corresponding to the numeric value
+   formatStyle("n_of_items",
+               background = styleColorBar(df$n_of_items, "lightblue"),
+               backgroundSize = "95% 75%",
+               backgroundRepeat = "no-repeat",
+               backgroundPosition = "center" )
+```
+
+
+## The *DT* package OLD EXAMPLES, NEED TO BE SORTED OUT
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+options(DT.options = NULL) # Reset global options for 'DT::datatable()' to defaults
+```
+
+Generate a small data frame to use in the examples.
+```{r warning = FALSE, echo = FALSE}
+set.seed(123)
+n <- 15
+
+df <- tibble(
+   date = seq(as.Date('2018-05-15'), as.Date('2018-05-20'), 1) %>% sample(n, replace = TRUE),
+   fact = c("alpha", "beta", "gamma") %>% sample(n, replace = TRUE) %>% as.factor(),
+   dum = ifelse(rnorm(n) > 0, TRUE, FALSE),
+   x = runif(n, -5, 5)*1000,
+   y = runif(n, 0, 1),
+   z = c(100, 500, 1000, 1250, 2725) %>% sample(n, replace = TRUE) %>% as.integer()
+   ) %>%
+   arrange(date)
+
+df
+```
+
+
+
+```{r}
+options(DT.options = NULL)
+
+df %>%
+   #
+   datatable(
+      #
+      caption  = "Table 1: This is a caption for the table.",
+      colnames = toupper(colnames(.)),
+      rownames = FALSE,
+      class = "cell-border stripe",
+      filter = "top",
+      #
+      options = list( pageLength = 5, lengthMenu =c(5, 10, nrow(.)),
+                      scrollX = FALSE, scrollY = FALSE,
+                      autoWidth = TRUE,
+                      columnDefs = list( list(targets = 0, width = "100px"),
+                                         list(targets = c(3:5), width = "30px"),
+                                         list(targets = c(1,3), searchable = FALSE)
+                      )
+      )
+      #
+   ) %>% 
+   #
+   formatDate(1, "toDateString") %>% 
+   formatRound(c("x","y"), 3) %>% 
+   formatCurrency("z", currency = "", interval = 3, mark = ",", digits = 0)
+```
+
+
+
+
+
+
+
+<!-- ```{r} -->
+<!-- options(DT.options = NULL) -->
+
+<!-- df %>% -->
+<!--    datatable(  -->
+
+<!--       caption  = "Table 1: This is a simple caption for the table.", -->
+<!--       #colnames = toupper(colnames(.)), -->
+<!--       rownames = FALSE, -->
+<!--       class = "cell-border stripe", -->
+
+<!--       options = list( -->
+<!--          scrollX = TRUE, scrollY = FALSE, -->
+<!--          pageLength = 5, lengthMenu =c(5, 10, 15, 20, 25, Inf), -->
+<!--          autoWidth = TRUE -->
+<!--          #columnDefs = list(list(width = "100px", targets = c(0,4))) -->
+<!--       ) -->
+<!--    ) %>%  -->
+<!--    formatDate("date", "toDateString") %>%  -->
+<!--    formatRound(c(3,8), 3) %>% -->
+<!--    formatRound("z", 0) %>%  -->
+<!--    formatCurrency("z", currency = "", interval = 3, mark = ",") -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- options(DT.options = NULL) -->
+
+<!-- df %>% -->
+<!--    datatable() %>%  -->
+<!--    formatDate(1, "toDateString") %>%  -->
+<!--    formatRound(c(3,8), 3) %>% -->
+<!--    formatRound(c("z","newz"), 0) %>%  -->
+<!--    formatCurrency("z", currency = "", interval = 3, mark = ",") -->
+<!-- ``` -->

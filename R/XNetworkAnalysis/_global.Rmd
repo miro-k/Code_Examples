@@ -1,0 +1,28 @@
+---
+title:  "Network Analysis in R (DataCamp)"
+output:
+   html_document:
+      css: custom_css.css
+      toc: true
+      toc_depth: 3
+      number_sections: true
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = " ")
+```
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+lapply(c("igraph", "magrittr", "tidyverse", "mcf"), library, character.only = TRUE)
+options("scipen"= 1000)
+```
+
+<!-- ================================================================================= -->
+
+
+```{r child = 'ch_01.Rmd'}
+```
+
+
+<!-- ================================================================================= -->

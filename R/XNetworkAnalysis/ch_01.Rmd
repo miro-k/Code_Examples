@@ -1,0 +1,40 @@
+
+# Chapter 1
+
+
+## Basics of networks
+
+The following data frame *df* is a starting to point when defining igraph network objects.
+```{r echo = FALSE}
+df <- tibble(name1 =
+                c("Jessie", "Jessie", "Sidney", "Sidney", "Karl", "Sidney", "Britt",
+                  "Shayne", "Sidney", "Sidney", "Jessie", "Donnie", "Sidney", "Rene",
+                  "Shayne", "Jessie", "Rene", "Elisha", "Eugene", "Berry", "Odell",
+                  "Odell", "Britt", "Elisha", "Lacy", "Britt", "Karl"),
+             name2 =
+                c("Sidney", "Britt", "Britt", "Donnie", "Berry", "Rene", "Rene",
+                  "Sidney", "Elisha", "Whitney", "Whitney", "Odell", "Odell",
+                  "Whitney", "Donnie", "Lacy", "Lacy", "Eugene", "Jude", "Odell",
+                  "Rickie", "Karl", "Lacy", "Jude", "Whitney", "Whitney", "Tommy"))
+```
+
+```{r}
+print.data.frame(df)
+```
+
+The function *graph_from_edgelist* creates a graph from an edge list. Its argument is a 2-column matrix, each row defines one edge. If it is a numeric matrix then its elements are interpreted as vertex ID's. If it is a character matrix then the elements are interpreted as symbolic vertex names and a vertex id will be assigned to each name, and also a *name* vertex attribute will be added. 
+
+```{r}
+# Convert the data frame to a matrix
+mx <- as.matrix(df)
+
+# Convert the matrix to an igraph object
+ig <- graph.edgelist(mx, directed = FALSE)
+
+# Get a basic plot of the network (igraph object)
+plot(ig)
+```
+
+## Network attributes
+
+## Network visualization

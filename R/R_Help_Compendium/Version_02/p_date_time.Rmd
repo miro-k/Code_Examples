@@ -1,0 +1,289 @@
+
+# Working with date and time
+
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+
+## Origin datetime in R
+
+By default, the origin (zero) datetime in R is *1970-01-01 00:00:00 UTC*, which is called the *UNIX epoch time* or *POSIX*. The numeric value of any date represents the number of days (non-negative integer) since the origin; the numeric value of any datetime is the number of seconds since the origin.
+
+The following functions return some useful date & time information pertaining to the current system:
+```{r}
+Sys.time() %>% str
+Sys.Date() %>% str
+```
+
+
+## Date and datetime formats
+
+### ISO-8601 format
+
+By default, the datetime format in R is ISO-8601. This means, among other things, that both dates and datetime formats order everything from the biggest to the smallest unit.
+
+Dates are arranged so that 4-digit year is first, followed by 2-digit month number which is then followed by 2-digit day of the month number; The year, month and day are either not separated at all or are separated by a single dash: *YYYY-MM-DD*, or *YYYYMMDD*.
+
+Datetimes are arranged the same way as dates, and then followed by a space or *T* and hours, minutes and seconds in 2-digit formats: *YYYY-MM-DD HH:MM:SS*, or *YYYY-MM-DDTHH:MM:SS*. The hours, minutes and seconds are usually separated by a colon: *HH:MM:SS*, but may also not have any separator at all: *HHMMSS*.
+
+### Custom formats
+
+We can specify a custom pattern for an date format using the formatting symbols below and a choice of a separator. Note that the use of `%y`, the 2-digit year is system-specific (unclear whether the base is 1900 or 2000), and should be used with caution.
+
+Code     | Meaning (Example)
+---------| -----------------------------------------
+%a       | Abbreviated weekday (Sun)
+%A       | Full weekday (Sunday)
+%b       | Abbreviated month name (Jul)
+%B 	   | Full month name (July)
+%d       | Day of the month (01-31)
+%m 	   | Month of the year (01-12)
+%y 	   | Year without century (2-digit year, 00-99)
+%Y 	   | Year with century(4-digit year, on input: 00 to 68 prefixed by 20 (20YY), 69 to 99 prefixed by 19 (19YY)
+H        | Hours (24 hour)
+M        | Minutes
+S        | Seconds
+I        | Hours (12 hour)
+p        | AM/PM
+z        | Timezone, offset in hours and minutes from UTC
+
+
+## Time zones in R
+
+For detailed information on how R handles time zones, go to <https://stat.ethz.ch/R-manual/R-devel/library/base/html/timezones.html>.
+
+
+### Time-zone codes
+
+R supports the so called Olson's (city/continent format of) time zones. The complete list of the time zone codes available in R is:
+```{r}
+OlsonNames() %>% str
+```
+
+Some examples of specifying time zones (using the Olson list above). Note that GMT is UTC.
+```{r}
+dt <- "1970-01-01 00:00:00"
+tzone = c("UTC", "GMT",             # Equivalent
+          "Europe/London",          # Equivalent to DST, summer = GMT-1, otherwise = GMT
+          "America/Toronto", "EST", # Equivalent
+          "Europe/Prague", "CET"    # Equivalent
+          )
+
+tab <- tibble()
+
+for (i in seq_along(tzone)){
+   tab[i,1] <- tzone[i]
+   tab[i,2] <- as.POSIXct(dt, tzone[i])
+   tab[i,3] <- as.numeric(as.POSIXct(dt, tzone[i])) / 3600
+}
+
+tab %>% rename(`Time zone code`   = V1,
+               `Seconds from UTC` = V2,
+               `Hours from UTC`   = V3)
+
+```
+
+
+### System time zone
+
+How the system time zone is set may depend on which operating system platform we run R. As one of the R's environmental variables, we can set the time zone to whichever we want.
+```{r}
+Sys.setenv(TZ = "UTC") # Set TZ to UTC
+Sys.setenv(TZ = "")    # Revert TZ back to the local one
+Sys.timezone()         # Returns the current system time zone
+```
+
+
+## Base R functions for dates & datetimes
+
+
+### String to date
+
+Base R function *as.Date()* handles parsing any date string into an *Date* class object. The function takes the date string and date format as argument (the format argument can be ommited if the date string follows the ISO-8061 format). Here are examples of converting various character formats into dates; all of them yield the same date, `2018-08-03` (August 3, 2018).
+```{r results = "hide"}
+as.Date("08/03/2018",     format = "%m/%d/%Y")
+as.Date("8/3/2018",       format = "%m/%d/%Y")
+as.Date("August 3, 2018", format = "%B %d, %Y")
+as.Date("AUGUST 3, 2018", format = "%B %d, %Y")
+as.Date("Aug 3, 2018",    format = "%b %d, %Y")
+as.Date("AUG 3, 2018",    format = "%b %d, %Y")
+as.Date("03AUG18",        format = "%d%b%y")
+as.Date("3-8-18",         format = "%d-%m-%y")
+```
+
+We can use the code system to change date's current format into another one.
+```{r}
+format(as.Date("2018-08-03"), "%B %d, %Y")
+format(as.Date("2018-08-03"), "<%d><%m><%Y>")
+```
+
+
+### String to datetime
+
+There are two base R functions that return two different datetime objects from a given datetime string (see the *Formats* section above for details). Function *as.POSIXct()* returns a numeric vector (the number of seconds elapsed since the origin), while *as.POSIXlt()* returns a list.
+```{r}
+as.POSIXct("1970-01-01 00:00:15", tz = "UTC") %>% unclass %>% str
+as.POSIXlt("1970-01-01 00:00:15", tz = "UTC") %>% unclass %>% str
+```
+
+Note that there's no need to explicitly specify the format if the strings is in the ISO-8061 format. The following two function return the same *2013-02-27 21:30:00 EST* datetime.
+```{r results = 'hide'}
+as.POSIXct("2013-02-27 21:30:00")
+as.POSIXct("2013-02-27 21:30:00", format = "%Y-%m-%d %H:%M:%S")
+```
+
+Here's an example of parsing 24-hour and 12-hour datetime formats; both return *2013-02-27 21:30:00 EST*.
+```{r results = 'hide'}
+as.POSIXct("2013-02-27 21:30:00",    format = "%Y-%m-%d %H:%M:%S")    # 24-hour format
+as.POSIXct("2013-02-27 09:30:00 PM", format = "%Y-%m-%d %I:%M:%S %p") # 12-hour format
+```
+
+Note that when parsing a string into a datetime, if no time zone is specified, the current system time zone is added by default. Indeed, we can specify the time zone using the *tz* argument. In the following example, the different time zones yield the difference of X hours (between UTC and CET):
+```{r}
+ as.POSIXlt("2018-07-04 13:00:00", tz = "CET") - as.POSIXct("2018-07-04 13:00:00", tz = "UTC")
+```
+
+
+### Date/datetime to string
+
+Function *strftime()* converts objects of classes *POSIXlt* and *POSIXct* representing calendar dates and times into strings. One use of the function is to obtain separate strings for the date and time for a datetime object. Get the date only (in several formats):
+```{r}
+strftime(as.POSIXct("2013-02-27 21:30:00"), format = "%Y-%m-%d") %>% str
+strftime(as.POSIXct("2013-02-27 21:30:00"), format = "%B %d, %Y") %>% str
+```
+get the time only (in several formats):
+```{r}
+strftime(as.POSIXct("2013-02-27 21:30:00"), format="%H:%M:%S") %>% str
+strftime(as.POSIXct("2013-02-27 21:30:00"), format="%I:%M:%S %p") %>% str
+```
+
+
+### Dealing with fractions of seconds in datetime objects
+
+```{r}
+dtime <- as.POSIXct("2011-10-11 10:30:00.321")
+format(dtime, "%Y-%m-%d %H:%M:%OS3")
+format(dtime, "%Y-%m-%d %H:%M:%OS2")
+format(dtime, "%Y-%m-%d %H:%M:%OS1")
+format(dtime, "%Y-%m-%d %H:%M:%S")
+```
+
+
+### Other useful functions to work with date and time
+
+The following functions return a character vector with the names of the weekday, month and quarter, respectively. The functions work both with dates and datetimes. Note that we can set weekdays and months to their abbreviated form (default is no abbreviation). Note that similar effect could be achieved using the *strftime()* function described above.
+```{r}
+weekdays(as.Date("2018-08-03"))
+weekdays(as.POSIXct("2013-02-27 21:30:00"))
+months(as.Date("2018-08-03"))
+quarters(as.Date("2018-08-03"))
+```
+
+The function *julian* returns the number of days since the origin
+```{r}
+julian(as.Date("2018-08-03"), origin = as.Date("1970-01-01"))
+```
+
+
+### Composing date from several strings
+
+Suppose we want to compose a single date vector from separate vectors containing the year, month and day; the obvious way is to use the *paste* function to generate a date string, and then proceed in the usual way using *as.Date*:
+```{r}
+tibble(D = c(1, 22, 30),
+       M = c(5, 1, 10),
+       Y = c(2010, 2015, 2018),
+       HR = c(0, 12, 22),
+       MT = c(5, 15, 35)) %>%
+   mutate(
+      DMY = paste(Y, M, D, sep = "-") %>% as.Date,
+      DMY_HMS = paste(paste(Y, M, D, sep = "-"), paste(HR, MT, "00", sep = ":")) %>% as.POSIXct
+      )
+```
+
+
+## Package *lubridate*
+
+At least some of lubridate's function are wrappers for the base R ones with some additional tweaks. This can cause them to be somewhat slower than their base R counterparts.
+
+
+### String to date
+
+The lubridate's functions for parsing strings to dates can 'guess' a number of arguments (not sure it's a good thing). There are a number of such convenient parsing functions: *ymd, ydm, mdy, myd, dmy, dym*. For example, the function *ymd* will successfully parse several year-month-date strings into a proper date (all yield the same date `2018-02-27`).
+```{r results = 'hide'}
+ymd("2018-02-27")    # as.Date("2018-02-27")
+ymd("2018.02.27")    # as.Date("2018.02.27", format = "%Y.%m.%d")
+ymd("2018 Feb 27th") # as.Date("2018 Feb 27th", format = "%Y %b %d")
+```
+
+A useful function *parse_date_time* allows us to parse a vector containing strings representing a variety of date formats (i.e., the vector contains more than one format and is thus messy).
+```{r}
+parse_date_time(
+   x = c("2018-02-27", "27/2/2018", "Feb 27th, 2018"), # same date, different strings
+   order = c("ymd", "dmy", "mdy")) # lubridate's parsing functions
+```
+
+
+### Composing date from several strings
+
+To put together separate strings and parse them into dates, *lubridate* has special functions *make_date* and *make_date_time*.
+```{r}
+tibble(D = c(1, 22, 30),
+       M = c(5, 1, 10),
+       Y = c(2010, 2015, 2018),
+       HR = c(0, 12, 22),
+       MT = c(5, 15, 35)) %>%
+   mutate(
+      YMD = make_date(year = Y, month = M, day = D),
+      YMD_HMS = make_datetime(year = Y, month = M, day = D, hour = HR , min = MT, sec = 0)
+      )
+```
+
+
+### Extracting parts of date and time
+
+Starting from a sequence of dates, generate columns with year, month, day of the month, day of the week, day of the year.
+```{r}
+tibble(Date = seq(from = as.Date("1970-01-01"), by = "8 months", length.out = 5)
+       ) %>% 
+   mutate(
+      Y  = year(Date),
+      M  = month(Date),
+      D  = day(Date),
+      WD = wday(Date),
+      YD = yday(Date)
+   )
+```
+
+Starting from a date-time sequence, we could generate the same variables as above, and additionally also the hour, minute, second, time zone, etc.
+```{r}
+tibble(Dtime = seq(from = as.POSIXct("1970-01-01 00:05:10", tz = "GMT"),
+                   by = "3 hours", length.out = 5)
+       ) %>% 
+   mutate(
+      HR = hour(Dtime),
+      MT = minute(Dtime),
+      SD = second(Dtime),
+      TZ = tz(Dtime)
+   )
+```
+
+
+### Additional useful functions
+
+Function      | What it does
+--------------|----------------------------------------
+leap_year()   | In leap year (TRUE or FALSE)
+am()          | In morning (TRUE or FALSE)
+pm()          | In afternoon (TRUE or FALSE)
+dst()         | During daylight savings (TRUE or FALSE)
+quarter()     | Quarter of year (1-4)
+semester()    | Half of year (1-2)
+round_date()  | Round date to the nearest unit (hour, day, ...) 
+ceiling_date()| Round date up
+floor_date()  | Round date down
+
+
+
+

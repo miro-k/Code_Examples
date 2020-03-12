@@ -1,0 +1,75 @@
+:: +++ BASIC GIT PARAMETERS (do only once)
+
+git config --global user.name "Miroslav Kucera"
+git config --global user.email "miroslav.kucera@hrsdc-rhdcc.gc.ca"
+
+:: +++ CHANGE DIRECTORY
+
+cd "X:\RAD\Quant_Analysis\Restricted\Project_NIIS_Case_Notes"
+cd "F:\Projects\Project_NIIS_Case_Notes"
+
+:: +++ CREATE A BARE REPO (which is like a central repo for all project participants)
+:: (Here "TEST.git" bare repo will be created in the given folder "Project_NIIS_Case_Notes")
+
+git init --bare "X:\RAD\Quant_Analysis\Restricted\Project_NIIS_Case_Notes\TEST.git"
+
+:: +++ CLONE A (BARE) REPO TO A LOCAL FOLDER
+
+git clone "X:\RAD\Quant_Analysis\Restricted\Project_NIIS_Case_Notes\Project_NIIS_Case_Notes.git" "F:\Projects\TEST"
+
+:: +++ COMMON GIT COMMANDS
+
+git fetch
+git pull
+git push
+
+git status
+git status --untracked-files = no
+
+git log
+git log --graph --oneline --all
+
+:: - Stage changes (period . stands for "all")
+
+git add .
+git add "./<some folder>/<file name>"
+
+:: - Commit changes and add a message (comment)
+
+git commit -m "Message here"
+
+:: - The following does git -add and git commit -m in one step
+
+git commit -a -m "Changes in .gitignore"
+
+:: - Examine differences between commits
+
+git difftool
+
+
+:: ----------------------------------------------------------------------------
+:: For gov't GitLab projects
+
+git config --global user.name "Miroslav Kucera"
+git config --global user.email "miroslav.kucera@servicecanada.gc.ca"
+
+user name: miroslav.kucera@servicecanada.gc.ca
+password: 6...5mk
+
+cd "F:\Projects\Project_Notes"
+
+git clone https://gccode.ssc-spc.gc.ca/Kucera/Project_Notes.git
+
+git add .
+git commit -m "A note describing the commit comes here."
+
+git pull
+git push
+
+
+
+
+
+
+
+

@@ -1,0 +1,10 @@
+
+# Plotting using *ggplot2*
+
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+
+## ???

@@ -1,0 +1,202 @@
+---
+title: "R code examples: Tests"
+# author: "Miroslav Kucera"
+# date: 2017-09-29
+output:
+   # word_document
+   html_document:
+      toc: true
+      toc_depth: 3
+      # code_folding: hide      
+      # toc_float:
+      #    collapsed: true
+      #    smooth_scroll: false
+      # theme: cerulean
+      # mainfont: "Calibri"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style type="text/css">
+
+  h1.title {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    font-size: 220%;
+    font-weight: normal;
+    font-style: normal;
+    font-variant: normal;
+    color: #40548e;
+  }
+
+  h4.author {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    font-size: 125%;
+    font-weight: normal;
+    font-style: italic;
+    color: #40548e;
+  }
+ 
+  h4.date {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    font-size: 125%;
+    font-weight: normal;
+    font-style: italic;
+    color: #40548e;
+  }
+  
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 12pt;
+  }
+  
+  code.r {
+    font-size: 100%;
+  }
+
+  pre {
+    font-size: 100%;
+  }
+
+  h1 {
+    font-family: Arial, sans-serif;
+    font-size: 200%;
+    font-weight: normal;
+    font-style: normal;
+    color: #40548e;
+  }
+  
+  h2 {
+    font-family: Arial, sans-serif;
+    font-size: 170%;
+    font-weight: normal;
+    font-style: normal;
+    color: #40548e;
+  }
+  
+  h3 {
+    font-family: Arial, sans-serif;
+    font-size: 140%;
+    font-weight: normal;
+    font-style: normal;
+    color: #40548e;
+  }
+  
+  h4 {
+    font-family: Arial, sans-serif;
+    font-size: 110%;
+    font-weight: normal;
+    font-style: normal;
+    color: #40548e;
+  }
+
+</style>
+
+<!-- ================================================================================= -->
+
+# The package **RNeo4j**
+
+```{r warning = FALSE, message = FALSE}
+pckgs <- c("tidyverse", "magrittr", "RNeo4j")
+lapply(pckgs, library, character.only = TRUE)
+rm(list = ls())
+```
+
+Connect to currently running Neo4j database at a specific URL:
+```{r}
+gdb <- startGraph("http://localhost:7474/db/data/",
+                  username = "neo4j", password = "nopassword")
+```
+
+Note that even though we will be populating the Neo4j database with nodes, relationships and properties, the R object `gph` will not change unless it's reassigned.
+
+Clear the current database. This will delete all the data, so by default input = TRUE which will prompt us to confirm our choice.
+```{r}
+clear(gdb, input = FALSE)
+# object.size(gdb)
+```
+
+
+## Create entities (nodes, relationships, properties)
+
+Add a uniqueness constraint for `Person` nodes (persons are going to be uniquely identified by the property `name`).
+```{r}
+addConstraint(gdb, "Person", "name")
+```
+
+Note that if we don't impose constraint(s), the same nodes that we create below could be duplicated, triplicated, etc. without limits. Once the above constraint is imposed, the copies of the nodes with the same `name` property will be prevented.
+
+Create some `Person` nodes. Note that the nodes don't have to be assigned to R objects for them to appear in the Neo4j database. However, we need to do so if we want to work with them later on (if we want to assign them relationships, etc.)
+```{r}
+# Aiden <- createNode(gdb, "Person", name="Aiden", age=20)
+# Greta <- createNode(gdb, "Person", name="Greta", age=30)
+# Annie <- createNode(gdb, "Person", name="Annie", age=40)
+# Andre <- createNode(gdb, "Person", name="Andre", age=50)
+
+properties_Person <- data_frame( Name = c("Aiden", "Greta", "Annie", "Andre"),
+                                 Age = c(20, 30, 40, 50) ) 
+
+for (i in seq_along(properties_Person$Name)) {
+   
+   node <- createNode(gdb, "Person",
+                      name = properties_Person$Name[[i]],
+                      age  = properties_Person$Age[[i]])
+
+   node_name <- properties_Person$Name[[i]]   
+   assign(node_name, node)
+}
+
+```
+
+Create some relationships:
+```{r}
+# r1 <- createRel(Aiden, "LIKES", Greta, weight=7)
+# r2 <- createRel(Greta, "LIKES", Annie, weight=1)
+# r3 <- createRel(Annie, "LIKES", Andre, weight=3)
+# r4 <- createRel(Andre, "LIKES", Aiden, weight=5)
+
+relationship_LIKES <- list( Person1 = list(Aiden, Greta, Annie, Andre),
+                            Person2 = list(Greta, Annie, Andre, Aiden),
+                            Weigth = c(70, 10, 30, 50))
+
+for (i in seq_along(relationship_LIKES[[1]])) {
+
+   p1 <- relationship_LIKES$Person1[[i]]
+   p2 <- relationship_LIKES$Person2[[i]]
+   wt <- relationship_LIKES$Weigth[[i]]
+   createRel(p1, "LIKES", p2, weight = wt)
+}
+```
+
+
+## Queries
+
+```{r}
+query <- "
+MATCH (p:Person)
+RETURN p.name AS Name, p.age AS Age
+"
+x <- cypher(gdb, query) %>% as_tibble
+print(x)
+```
+
+
+```{r}
+relationship_LIKES <- list( Person1 = list(Aiden, Greta, Annie, Andre),
+                            Person2 = list(Greta, Annie, Andre, Aiden),
+                            Weigth = c(70, 10, 30, 50))
+
+
+for (i in seq_along(relationship_LIKES[[1]])) {
+
+   p1 <- relationship_LIKES$Person1[[i]]
+   p2 <- relationship_LIKES$Person2[[i]]
+   wgt <- relationship_LIKES$Weigth[[i]]
+   createRel(p1, "LIKES", p2, weight = wgt)
+}
+```
+

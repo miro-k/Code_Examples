@@ -1,0 +1,253 @@
+
+# Export/import of non-R data formats
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = setdiff(ls(), lsf.str())) # Keep only functions
+```
+
+For even more information about importing data into R, see DataCamp.com's courses and articles, such as
+<https://www.datacamp.com/community/tutorials/r-data-import-tutorial> and <https://www.datacamp.com/community/tutorials/importing-data-r-part-two>.
+
+
+Create a test data frame for the examples
+```{r}
+df <- tibble(x = letters[1:5], y = c(T,T,F,T,F), z = round(runif(5),3)); print(df)
+```
+
+
+## Feather: a data frame format for R and Python
+
+The *feather* data format was developed as a collaboration between R and Python developers to create a fast, light and language agnostic format for storing data frames; i.e., the object that is being saved/read has to be a data frame.
+```{r}
+write_feather(df, path = "testdat.feather")
+df_import <- read_feather(path = "testdat.feather")
+```
+
+
+## Tabular (flat) text data files
+
+In the subsections below, we first export and then import a text file with a specified delimiter (tab in the examples, but could be anything). Second, with the exception of the *data.table* package, we export and import a comma-separated text file using a csv-specific functions.
+
+
+### Base R
+
+```{r message = FALSE}
+write.table(df, file = "testdat1.txt", sep = "\t", row.names = FALSE)
+df_import <- read.table(file = "testdat1.txt", sep = "\t", header = TRUE)
+
+write.csv(df, file = "testdat1.csv", row.names = FALSE)
+df_import <- read.csv(file = "testdat1.csv")
+```
+
+
+### Package *readr*
+
+
+The *readr* package is a part of Hadley Wickham's *tidyverse* now. The package has a general *write_delim()* and *read_delim()* functions, and specialized functions: *..._csv()* for comma-separated files, *..._tsv()* for tab-delimited ones, and *..._csv2()* for those delimited with semi-colon.
+```{r message = FALSE}
+write_delim(df, path = "testdat2.txt", delim = "\t")
+df_import <- read_delim(file = "testdat2.txt", delim = "\t")
+
+write_csv(df, path = "testdat2.csv")
+df_import <- read_csv(file = "testdat2.csv")
+```
+
+**Important note:** Writing data into *csv* that is suited for MS Excel require using the specialized version of the export function: *write_excel_csv()*. This is particularly important if we export character strings in foreing languages. Using only *write_csv()* can result in incorrect character standard and wrong rendering of the text in Excel.
+```{r}
+df <- tibble( textvar = c("Maître Corbeau, sur un arbre perché.",
+                          "Maître Renard, par l'odeur alléché." ) )
+
+write_csv(df, "used_write_csv.csv")
+write_excel_csv(df, "used_write_excel_csv.csv")
+```
+
+
+
+The package also has specialized functions to read the type of rectangular data where each column is separated by one or more columns of white spaces. The function *read_table()* requires that each line must be of the same length, and each field is in the same position in every line; *read_table2()* allows any number of white spaces between columns and the lines can be of different lengths.
+
+Another function, *read_fwf()* is used to read fixed-width files. The first example below uses the argument *fwf_widths()* which specifies the width of each variable. Thus, 20 is the width of the first variable in the data frame, 10 is the width of the second, and 12 of the third and last one.
+```{r message = FALSE}
+read_fwf( file = readr_example("fwf-sample.txt"), # Path to 'fwf-sample.txt' file
+          fwf_widths( widths = c(20, 10, 12),     # Sequence of var. widths
+                      col_names = c("name", "state", "ssn") ))
+```
+
+We can also specify variables to be imported by their starting and ending position using *fwf_positions()*. This is especially useful when extracting only a subset variables.
+```{r message = FALSE}
+read_fwf(file = readr_example("fwf-sample.txt"),
+         fwf_positions( start = c(1, 21, 31), # Starting position for each variable
+                        end = c(20, 30, 42),  # End position for each variable
+                        col_names = c("name", "state", "ssn")) )
+```
+
+
+### Package *data.table*
+
+Note the use of *sep = "auto"*: the *fread()* figures out by itself how the data are delimited.
+```{r message = FALSE}
+fwrite(df, file = "testdat3.txt", sep = "\t")
+df_import <- fread(input = "testdat3.txt", sep = "auto")
+```
+
+The *data.table* is supposed to be very fast when handling very large datasets. The following tests various ways of filtering several data format in several ways.
+```{r}
+x <- runif(1e3); names(x) <- "x"; format(object.size(x), units = "MB", digits = 2)
+dtab <- as.data.table(x); df <- tibble(x = x)
+
+microbenchmark( times = 2L, unit = "ms",
+                `(A)` = x["x" > 0.5],        # Filter from the original vector
+                `(B)` = filter(df, x > 0.5), # Filter 'df' using dplyr
+                `(C)` = df[df$x > 0.5, ],    # Filter 'df' using base R way
+                `(D)` = dtab[dtab$x > 0.5] ) # Filter 'dtab'
+```
+
+
+## Lines of text
+
+There are functions for writing/reading lines of text to/from a character vector in base R, and there are similar functions provided in the *readr* package as well.
+```{r}
+x <- c("This is the first line.", "The second line follows.", "Third line is the last.")
+
+# Base R
+
+writeLines(x, "lines1.txt")
+readLines("lines1.txt") %>% str
+
+# The readr package
+
+write_lines(x, "lines2.txt")
+read_lines("lines2.txt") %>% str
+```
+
+
+## Log files
+
+The function *read_log()* from the *readr* package allows to read common/combined log files into a tibble. The format of the log files is farily standard; it uses both quotes and square brackets for quoting, and there may be literal quotes embedded in a quoted string. The dash, "-", is used for missing values.
+```{r message = FALSE}
+read_log(file = readr_example("example.log"))
+```
+
+
+## Excel files
+
+
+### Package *readxl*: Import only
+
+The package provides the easiest way to import tabular data from *xls* and *xlsx* files. It is part of the *tidyverse* suite, and the syntax is very similar to the *readr* package functions.
+```{r}
+xfile <- readxl_example("datasets.xlsx")  # Excel file provided with the package
+excel_sheets(xfile)                       # List all worksheets in the file
+read_excel(xfile, sheet = "quakes")       # Import specific worksheet
+```
+Note that if *sheet* is not specified, the first worksheet is the default.
+
+
+### Package *rio*: Import and export
+
+In the background, *rio* calls the *readxl* package for the import, and the *openxlsx* for the export of Excel-format data files. Note that the package *openxlsx* requires that *Rtools* is installed. For more details about *rio*, see below.
+```{r}
+df <- rio::import(xfile, sheet = "quakes"); str(df) # The same Excel file as above
+# rio::export(df, "test.xlsx") # Requires Rtools
+```
+
+
+## SAS, Stata and SPSS data formats using *haven*
+
+The package *haven* provides functions to effectively import/export data files in SAS, Stata and SPSS formats. Note that the *rio* package (see below) uses the *haven* package to I/O these data formats as well.
+```{r}
+df <- tibble(x = letters[1:5], y = c(1:5), z = LETTERS[1:5])
+
+# Stata format (Stata version can be specified)
+
+write_dta(df, "test.dta")
+read_dta("test.dta") %>% str  # Alternatively, 'read_stata()'
+```
+
+**Important note!** *haven* doesn't seem to be able to export into SAS properly. Its SAS exports can be imported back to R fine, but SAS gives an error message. See the discussion at <https://github.com/tidyverse/haven/issues/224>, and work-around using SPSS data format that can be read by SAS.
+```{r}
+df <- tibble(x = letters[1:5], y = c(1:5), z = LETTERS[1:5])
+
+# SAS format: 'write_sas()' doesn't work properly
+
+write_sas(df, "test.sas7bdat")
+read_sas("test.sas7bdat") %>% str
+write_sav(df, "test.sav")
+```
+
+The SPSS *sav* data files are fairly small and can easily be imported into SAS. Importantly, SAS will keep the variable types and formats (which wouldn't have at imports from CSV).
+```{r}
+df <- tibble(x = letters[1:5], y = c(1:5), z = LETTERS[1:5])
+
+# SPSS format:
+
+write_sav(df, "test.sav")
+read_sav("test.sav") %>% str
+```
+
+
+## Other data formats (relational databases, etc.)
+
+DataCamp has an article that describes how to connect to an SQL server, and how to use the *odbc* package, see <https://support.rstudio.com/hc/en-us/articles/214510788-Setting-up-R-to-connect-to-SQL-Server->.
+
+To be completed ...
+
+
+## Access data on the web
+
+Check out DataCamp courses (namely <https://www.datacamp.com/courses/working-with-web-data-in-r>), and the following sources: <https://theodi.org/article/how-to-use-r-to-access-data-on-the-web/>,
+<https://www.r-bloggers.com/getting-data-from-an-online-source/>. RStudio also provides a tutorial at <https://www.rstudio.com/resources/webinars/extracting-data-from-the-web-part-1/>.
+
+To be completed ...
+
+
+## Universal import, export and conversion using *rio*
+
+The *rio* package unifies data import, export and conversion into three simple functions: *import()*, *export()* and *convert()*. In the background, *rio* uses most of the packages described above and then some to work with other data formats (XML, HTML, YAML, JSON, Matlab, etc.). For more information see <https://cran.microsoft.com//web/packages/rio/vignettes/rio.html>, also <https://bookdown.org/csgillespie/efficientR/input-output.html#versatile-data-import-with-rio>,
+and the official documentation for the package.
+
+In the example below, for csv data, *rio* uses the *data.table* package. For another example see the section on Excel data format above.
+```{r}
+df <- tibble(x = letters[1:5], y = c(1:5), z = LETTERS[1:5])
+export(df, "test.csv")      # Export data frame to 'csv' file
+import("test.csv") %>% str  # Import 'csv' file into a data frame
+```
+Note that the format of the data file can be specified using the *format* argument, but it is not necessary as *rio* infers it from the file extension.
+
+The function *convert()* can be used in place of file-format conversion utilities to convert between different formats.
+```{r}
+convert("test.csv", "test.dta")  # Convert 'csv' to Stata 'dta' 
+convert("test.dta", "test.sav")  # Convert Stata 'dta' to SPSS 'sav'
+```
+
+**Important note!** Because *haven* doesn't seem to be able to export into SAS properly, *rio* will not work for exports into SAS data format either . There is a work-around using SPSS data format that can be easily imported by SAS while preserving variable classes and formats (see the *haven* section above for details).
+
+
+## Speed test for writing/reading data in various formats
+
+Generate a data frame object:
+```{r}
+df <- matrix(runif(1e6), ncol = 5) %>% round(3) %>% as_tibble
+format(object.size(df), units = "MB", digits = 2)
+```
+
+Save a data frame in various file formats:
+```{r message = FALSE}
+microbenchmark( times = 2L, unit = "s",
+                A = save(df, file = "testdat.RData"),     # RData
+                B = saveRDS(df, "testdat.RDS"),           # RDS
+                C = write_feather(df, "testdat.feather"), # feather
+                D = write_csv(df, "testdat1.csv"),        # csv & readr
+                E = export(df, "testdat2.csv") )          # csv & data.table
+```
+
+Read a data file into R:
+```{r message = FALSE}
+microbenchmark( times = 2L, unit = "s",
+                A = load("testdat.RData"),           # RData
+                B = readRDS("testdat.RDS"),          # RDS
+                C = read_feather("testdat.feather"), # feather
+                D = read_csv("testdat1.csv"),        # csv & readr
+                E = import("testdat2.csv") )         # cvs & data.table
+```
+
+

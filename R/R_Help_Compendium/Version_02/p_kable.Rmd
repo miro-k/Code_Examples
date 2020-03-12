@@ -1,0 +1,126 @@
+
+# Tables in *knitr* using *kable*, *kableExtra* and *formattable*
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+
+Generate a small data frame to illustrate the functionalities of the *kable* and *kableExtra* packages.
+```{r warning = FALSE}
+set.seed(123)
+n <- 15
+
+df <- tibble(
+   date = seq(as.Date('2018-05-15'), as.Date('2018-05-20'), 1) %>% sample(n, replace = TRUE),
+   x = c("alpha", "beta", "gamma") %>% sample(n, replace = TRUE),
+   y = round(runif(n, -10, 10), 2),
+   z = abs(y)*1000,
+   log = c(TRUE, FALSE) %>% sample(n, replace = TRUE)
+   ) %>% 
+   arrange(date)
+
+rm(n)
+```
+
+
+## Options in *kable_styling()*
+
+```{r}
+df %>%
+   kable(
+      caption = "Table 1: Simple table caption here"
+   ) %>% 
+   kable_styling(
+      full_width = FALSE,
+      position = "left",
+      bootstrap_options = c("bordered", "striped", "hover")
+   )
+```
+
+
+## Function *column_spec()*
+
+Note that if we want to set columns to specific width(s), we need to first set *full_width = FALSE* in *kable_styling()*, otherwise the columns for which we didn't specify a width will be extended to fill the page width.
+```{r}
+df %>%
+   kable(
+      escape = FALSE
+   ) %>% 
+   kable_styling(
+      full_width = FALSE
+   ) %>% 
+   column_spec( c(1:2), background = " #eeeeee", width = "5.25cm") %>% 
+   column_spec( 3, italic = TRUE, color = "#a5a5a5" ) %>% 
+   column_spec( 4, bold = TRUE, color = "#a5a5a5" ) %>% 
+   column_spec( 5, italic = TRUE, bold = TRUE, color = "#a5a5a5" )
+```
+
+
+## Function *row_spec()*
+
+Like with the columns, we can specify a number of options to format the rows of the table. In the example below, note that the 0th row is the table heading (contains variable names). Conditional formatting is also possible, note the example of the use of the *which()* function to apply a conditional type of background coloring (depending on whether the date is an even or odd number).
+```{r}
+df %>%
+   kable(
+      escape = FALSE
+   ) %>%  
+   kable_styling(
+      full_width = FALSE
+   ) %>% 
+   row_spec( 0,
+             align = "c"
+   ) %>% 
+   row_spec( which(as.numeric(df$date) %% 2 == 0),
+             # bold = TRUE, italic = TRUE, color = "blue",
+             background = "#f8f9db"
+   ) %>% 
+   row_spec( which(as.numeric(df$date) %% 2 != 0),
+             # bold = TRUE, italic = TRUE, color = "blue",
+             background = "#f9e7fb"
+   )
+```
+
+
+
+## Functions *cell_spec()*, *color_tile()* and *color_bar()*
+
+Some of these functions are using functions from the package *formattable*. A custom function to fix alignment problems with the *kableExtra::color_bar()* function. See <https://stackoverflow.com/questions/49592235/kableextra-with-formattable-formatting-questions> for details.
+```{r}
+my_color_bar <- function (color = "lightgray", fun = "proportion", ...) 
+{
+   fun <- match.fun(fun)
+   formatter(
+      "span", 
+      style = function(x) style(
+         display = "inline-block", 
+         direction = "ltr",
+         `border-radius` = "0px",
+         `padding-right` = "2px", 
+         `background-color` = csscolor(color),
+         #color = csscolor("red"),
+         width = percent(fun(as.numeric(x), ...))
+      )
+   )
+}
+```
+
+Note that the formatting using these functions can be made in a conditional fashion.
+```{r}
+df %>%
+   mutate(
+      date = cell_spec(date, color = ifelse( as.numeric(date) %% 2 == 0, "maroon", "navy" )),
+      y = color_tile("white", "orange")(y),
+      z = my_color_bar("lightgreen")(round(z,0)),
+      log = ifelse(log == TRUE,
+                   cell_spec(log, background = "lightblue"),
+                   cell_spec(log, background = "pink"))
+   ) %>% 
+   kable(
+      escape = FALSE
+   ) %>%  
+   kable_styling(
+      full_width = FALSE
+   )
+```
+

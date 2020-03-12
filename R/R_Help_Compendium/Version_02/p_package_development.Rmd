@@ -1,0 +1,15 @@
+
+
+# R package development
+
+A good description of the workflow for package development: <https://www.hvitfeldt.me/blog/usethis-workflow-for-package-development>
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+
+## X
+
+```{r}
+```

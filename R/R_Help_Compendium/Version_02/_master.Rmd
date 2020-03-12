@@ -1,0 +1,164 @@
+---
+title:  "R code examples"
+output:
+   # word_document
+   html_document:
+      css: custom_css.css
+      # theme: cerulean
+      toc: true
+      toc_depth: 4
+      number_sections: true
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = " ")
+```
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+
+lapply(c("alphavantager",
+         "bizdays",
+         "broom",
+         "caret",
+         "data.table",
+         "DT",
+         "e1071",
+         "feather",
+         "formattable",
+         "gmodels",
+         "haven",
+         "htmlwidgets",
+         "knitr",
+         "kableExtra",
+         "leaflet",
+         "lubridate",
+         "magrittr",
+         "margins",
+         "microbenchmark",
+         "mlbench",
+         "psych",
+         "rJava",
+         "qdap",
+         "rio",
+         "readxl",
+         "stringr",
+         "shiny",
+         "tidyverse",
+         "tidytext",
+         "tokenizers"), library, character.only = TRUE)
+
+
+# Functions and other calls (see the code below) need be placed directly in the codes
+# where there are used. Calling them from here doesn't work (even if we don't rm() the
+# workspace in the particular code). It may be possible to overcome this by packaging
+# user-defined functions and calling them from a package.
+
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+# funcdir <- "F:/Examples/R/Functions"
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+
+options("scipen"= 1000) # Sci notation turned off
+```
+
+<!-- ================================================================================= -->
+
+
+```{r child = 'p_basics.Rmd'}
+```
+
+```{r child = 'p_piping.Rmd'}
+```
+
+```{r child = 'p_objects.Rmd'}
+```
+
+```{r child = 'p_data_formats.Rmd'}
+```
+
+```{r child = 'p_import_export.Rmd'}
+```
+
+```{r child = 'p_strings.Rmd'}
+```
+
+```{r child = 'p_dplyr.Rmd'}
+```
+
+```{r child = 'p_tidyr.Rmd'}
+```
+
+```{r child = 'p_functional_prog.Rmd'}
+```
+
+```{r child = 'p_ggplot2.Rmd'}
+```
+
+```{r child = 'p_date_time.Rmd'}
+```
+
+```{r child = 'p_time_series.Rmd'}
+```
+
+```{r child = 'p_descriptive_stats.Rmd'}
+```
+
+```{r child = 'p_leaflet_old.Rmd'}
+```
+
+```{r child = 'p_leaflet.Rmd'}
+```
+
+```{r child = 'p_specialize_pckgs.Rmd'}
+```
+
+```{r child = 'p_DT.Rmd'}
+```
+
+```{r child = 'p_kable.Rmd'}
+```
+
+```{r child = 'p_binary_outcome_models.Rmd'}
+```
+
+```{r child = 'p_train_test_models.Rmd'}
+```
+
+```{r child = 'p_machine_learning.Rmd'}
+```
+
+```{r child = 'p_package_development.Rmd'}
+```
+
+```{r child = 'p_misc.Rmd'}
+```
+
+
+<!-- ================================================================================= -->
+
+```{r message = FALSE, results = 'hide', echo = FALSE}
+
+# Delete files with extension 'feather' and the string 'test' in the name
+
+filenames <- list.files(path = getwd(), full.names = TRUE,recursive = TRUE)
+file.remove( filenames[grepl("test.*\\.feather", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.txt", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.csv", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("lines\\d\\.txt", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.xlsx", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.dta", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.sas7bdat", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.sav", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.rdata", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("test.*\\.rds", filenames, ignore.case = TRUE)] )
+file.remove( filenames[grepl("used_.*\\.csv", filenames, ignore.case = TRUE)] )
+```
+

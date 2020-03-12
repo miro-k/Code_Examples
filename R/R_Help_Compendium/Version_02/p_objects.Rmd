@@ -1,0 +1,279 @@
+
+# R objects and subsetting
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+Note that the terms *object* and *data structure* are used interchangeably throughout this text. The term *vector* and *atomic vector* are also synonyms. Note that all R objects are or compose of atomic vectors, even a scalar is a 1-element vector.
+
+
+## Object's mode, type and class
+
+The *mode* is a mutually exclusive classification of objects according to their basic structure and how they are stored. An object has one and only one mode. R has four basic atomic modes: *logical* (binary `TRUE`/`FALSE`), *numeric* (integer or double-precision floating-point), *complex* and *character*. Recursive objects have modes such as *list* or *function*, etc.
+
+R object's *class* is a property assigned to an object that determines how generic functions operate with it. It is not a mutually exclusive classification. If an object has no specific class assigned to it, such
+as a simple numeric vector, it's class is usually the same as its mode, by convention.
+
+The example below demonstrates both, the use of functions that allow to coerce an R object from one class to another (the *as.---* family of functions), and the use of functions that return the object's type, class and mode. For a more involved discussion of these functions check stackoverflow: <https://stackoverflow.com/questions/35445112/what-is-the-difference-between-mode-and-class-in-r>. Also note that some *as.---* functions serve to coerce one data type into another rather than object classes (see the *as.data.frame* example below that coerces a matrix into a data frame).
+
+```{r}
+xd <- c(rep(1,3), rep(2,4), rep(3,3))
+xi <- as.integer(xd)
+xf <- as.factor(xd)
+xc <- as.character()
+
+tab <- cbind(
+   x_dbl  = c(mode(xd), storage.mode(xd), typeof(xd), class(xd)),
+   x_int = c(mode(xi), storage.mode(xi), typeof(xi), class(xi)),
+   x_fct  = c(mode(xf), storage.mode(xf), typeof(xf), class(xf)) )
+
+rownames(tab) <- c("mode", "storage.mode", "typeof", "class")
+tab %>% as.data.frame(stringsToFactors = FALSE) %>% rownames_to_column(var = "function")
+```
+
+Note that there is also the *is.---* family of function. These functions are a logical test, they return *TRUE* if the object is of the given class, and *FALSE* if not. Some of the *is.---* function test aspects of the object other than class, e.g. the type of data structure (matrix, list, data frame, etc.). See examples below.
+```{r}
+tab <- rbind(
+   is_numeric = lapply(list(xd, xi, xf, xc), is.numeric) %>% unlist,
+   is_double  = lapply(list(xd, xi, xf, xc), is.double)  %>% unlist,
+   is_integer = lapply(list(xd, xi, xf, xc), is.integer) %>% unlist,
+   is_vector  = lapply(list(xd, xi, xf, xc), is.vector)  %>% unlist,
+   is_matrix  = lapply(list(xd, xi, xf, xc), is.matrix)  %>% unlist )
+
+colnames(tab) <- c("x_dbl", "x_int", "x_fct", "x_chr")
+tab
+```
+
+
+## Object's dimension and homogeneity
+
+R objects can be classified by their dimensionality (one or more dimensions) and homogeneity (the contents can/cannot be a mixture of different types of objects):
+
+| Dimension     | Homogenous    | Heterogenous  |
+|:--------------|:--------------|:--------------|
+| 1             | Vector        | List          |
+| 2             | Matrix        | Data frame    |
+| > 2           | Array         |               |
+
+
+Note that the function `dim()` works only with objects of 2 or more dimensions. For 1-dimensional objects, it'll return `NULL`. The function `length` returns the number of elements in any given object; a special function `lengths` returns the length of every object in a list.
+
+```{r}
+x <- list(c(1:10), matrix(c(1:6), nrow = 3))
+dim(x)     # Doesn't apply
+length(x)  # Number of elements (objects) in the list
+lengths(x) # Length of each element (object) in the list
+```
+
+Note that the function `length` always returns the number of elements in the object.
+```{r}
+matrix(c(1:6), nrow = 3) %>% length # Number of entries (nrows x ncols)
+matrix(c(1:6), nrow = 3) %>% dim    # Number of rows and columns
+```
+
+## Subsetting R objects
+
+For additional details on this subject, see chapter 5 of *Advanced R* by Wickham & Grolemund at <https://adv-r.hadley.nz/subsetting.html>. Also see <https://www.statmethods.net/management/subset.html> for additional information about subsetting using base R functions.
+
+
+### Subsetting an atomic vector
+
+Create a vector and assign names to its elements.
+```{r}
+x <- c(1:5)
+names(x) <- paste0("e", 1:length(x))
+print(x)
+```
+
+*  **Positive integer** returns the element at the positions specified by the integer.
+```{r}
+x[c(1,5)]
+```
+
+*  **Negative integer** excludes the element at the positions specified by the integer.
+```{r}
+x[c(-2,-3,-4)]
+```
+
+*  **Logical value** `TRUE` returns the element of `x` at the position where `TRUE` occurs.
+```{r}
+x[c(TRUE, FALSE, FALSE, FALSE, TRUE)]
+```
+
+*  **Element name** return the element of the specified name.
+```{r}
+x[c("e1", "e5")]
+```
+
+We can use regular expressions and string functions to select element names. The `grepl` function returns a logical vector that has `TRUE` where there is a match for the specified pattern and `FALSE` otherwise.
+```{r}
+pmatch <- grepl("^(e1|e2).*", names(x)) # Names that start with "e1" or "e2"
+tibble(x, pmatch)
+x[pmatch]
+```
+
+Note that it is also possible to use **empty brackets** which returns the whole original vectors, and **0** which returns a named vector of the same type as the original one but of length zero.
+```{r}
+x[]
+x[0]
+``` 
+
+
+### Subsetting a matrix/array
+
+Create a matrix and assing names to its rows and columns.
+```{r}
+x <- outer(1:5, 1:3, FUN = "paste", sep = ",")
+colnames(x) <- paste0("c", 1:ncol(x))
+rownames(x) <- paste0("r", 1:nrow(x))
+print(x)
+```
+
+Subsetting a matrix can be done using positive/negative integers, logical values or element names in the same way as it's done when subsetting atomic vectors. Because matrices and arrays have more than one dimension, we need to specify which dimension the subsetting/selection applies.
+```{r}
+x[c(1,2), ] # Select specified rows and all columns
+x[ ,c(1,2)] # Select specified columns and all rows
+x[c(3:5), c(1,2)] # Select specified rows and columns
+```
+
+Subsetting array works the same way as subsetting matrices, just the number of dimensions is more than two.
+```{r}
+a1 <- outer(1:5, 1:3, 1, FUN = "paste", sep = ",")
+a2 <- outer(1:5, 1:3, 2, FUN = "paste", sep = ",")
+a <- array(c(a1, a2), dim=c(5,3,2))
+
+dimnames(a) <- list( paste0("x", 1:length(a[ , 1, 1])),
+                     paste0("y", 1:length(a[1, , 1])),
+                     paste0("z", 1:length(a[1, 1, ])) )
+print(a)
+str(a)
+```
+
+Some examples of subsetting an array. The following expression return the same subsets: all elements of the 1st dimension (*x*) and specified elements from the 2nd and 3rd dimensions.
+```{r}
+a[c(1,5), c(1,3), 2]
+a[c("x1","x5"), c("y1","y3"), "z2"]
+```
+
+
+### Subsetting a list
+
+Create a list `L` of several components: a vector `v`, matrix `m`, a single list `l`, and a list of two lists `ll`. Note that lists are heterogenous objects, i.e., they can contain objects of various types and classes.
+```{r}
+L <- list(v = c(1:5),
+          m = matrix(1:10, nrow = 2),
+          l = list(c(1.1,2.2), c("a","b")),
+          ll = list(e1 = list(c(3.3,4.4), c("d","c")), e2 = matrix(11:20, nrow = 5)))
+print(L)
+str(L)
+```
+
+When subsetting a list, using `[` will always return a list, not the content of the list being subset. Using `[[` allows us to extract specific components of the content of the list. The third operator, `$`, is a useful shorthand for `[[` when the list elements have names and we can combine them with the dollar-sign operator.
+```{r}
+str(L[1])   # Returns a list containing the first element of 'L'
+str(L[[1]]) # Returns the first element of 'L', the vector 'v'
+str(L$v)    # The same as above
+```
+
+Note that the rules of subsetting apply to elements of a list that are lists themselves. For example, in `L`, the 4th element is a list `ll` whose 2nd element is a matrix. However, subsetting with `[` returns a list, while `[[` or `$` returns the matrix.
+```{r}
+L[[4]][2] %T>% str %>% class    # Extracts the 2nd element of the 4th object but returns it as a list
+L[[4]][[2]] %T>% str %>% class  # Extracts the 2nd element of the 4th object in its actual class
+L[[4]]$e2 %T>% str %>% class    # The same as above
+```
+
+
+### Subsetting a data frame
+
+Note that data frames, similarly to lists, are heterogenous objects. The heterogeneity is limited only to the columns (variables) which can be of various types (numeric, character, logical, etc.)
+```{r}
+df <- tibble(x = c(1:5), y = c(T,T,F,T,F), z = letters[1:5])
+print(df)
+```
+
+Subsetting with `[` and `[[` works similary to lists. Using `[` returns a data frame, and using `[[` simplifies the class to an appropriate vector.
+```{r error = TRUE}
+# Returns a data frame
+
+df[1] %T>% str %>% class
+df["x"] %T>% str %>% class
+df[c("x","y")] %>% class
+
+# Returns a vector
+
+df[[1]] %T>% str %>% class
+df[["x"]] %T>% str %>% class
+df$x %T>% str %>% class
+df[[c("x","y")]] %>% class # Will result in an error
+```
+
+Data frames can also be subset using functions from the `dplyr` package. Specifically, the function `select` and `filter` are useful (See the section on `dplyr`).
+
+
+### Subsetting and conditional selection using the *subset* function
+
+For all objects - vectors, matrices and data frames - the *subset* function allows to select observations based on a condition.
+```{r}
+x <- 1:5; names(x) <- paste0("e", 1:length(x)); print(x)
+subset(x, x >= 3)
+```
+
+For matrices and data frames, observations can be selected in the same way as shown above. Additionally, the *select* argument can be used to specify (by name or position) columns that are to be retained/dropped. Note the use of the minus sign to drop specific columns. The following example pertains to matrices (and n-dimensional arrays):
+```{r}
+x <- matrix(1:15, ncol = 3)
+colnames(x) <- paste0("c", 1:ncol(x))
+rownames(x) <- paste0("r", 1:nrow(x))
+print(x)
+
+subset(x, x[, 1] >= 3, select = c(2:3))
+subset(x, x[, 1] >= 3, select = -c(1)) # Note that 'select = -c("c1")' doesn't work
+subset(x, x[, "c1"] >= 3, select = c("c2","c3"))
+```
+
+Everything that works for matrices works for data frames as well:
+```{r}
+df <- as_tibble(x); df
+subset(df, df[, 1] >= 3, select = c(2:3))
+subset(df, df[, "c1"] >= 3, select = c("c2","c3")) 
+```
+
+For data frames only, however, there is also a simpler way for subsetting using the non-standard evaluation (directly supply variable names without quotes):
+```{r}
+subset(df, c1 >= 3, select = c(c2, c3))
+```
+
+
+## Converting object classes/types/modes
+
+https://stackoverflow.com/questions/8855589/a-comprehensive-survey-of-the-types-of-things-in-r-mode-and-class-and-type
+
+
+### Functions to test and convert object classes
+
+See <https://www.statmethods.net/management/typeconversion.html> for details on *is.\<class\>* functions that test if an object is of a given class (return TRUE or FALSE), and *as.\<class\>* functions which coerce an object from one class to another. There are also similar functions in the *dplyr* (*tidyverse*) package.
+
+
+### Examples of converting a list into a matrix/data frame
+
+In the examples below, each list's element is a vector. These vectors can be collected using *do.call* and *cbind*/*rbind* (or their data frame versions).
+```{r results = 'hide', echo = FALSE}
+list1 <- list( avg  = c(x = 0.5, y = 1.5, z = 0.7),
+               p50  = c(x = 0.6, y = 1.2, z = 1.5),
+               sdev = c(x = 2.5, y = 3.5, z = 5.5) )
+
+list2 <- list( x = c(avg = 0.5, p50 = 0.6, sdev = 2.5),
+               y = c(avg = 1.5, p50 = 1.2, sdev = 3.5),
+               z = c(avg = 0.7, p50 = 1.5, sdev = 5.5) )
+```
+
+```{r}
+list1
+do.call(cbind, list1)
+do.call(rbind, list1)
+
+
+list2
+do.call(cbind, list2)
+do.call(rbind, list2)
+```

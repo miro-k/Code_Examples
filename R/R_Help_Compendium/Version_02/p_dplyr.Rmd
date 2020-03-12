@@ -1,0 +1,223 @@
+
+
+# Data manipulation using *dplyr*
+
+This links is a good reference for all things *tidyverse* (*dplyr* and the other packages): <https://dplyr.tidyverse.org/index.html>.
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+
+## The *tibble* data objects
+
+Tibble is an improved *data.frame* object.
+
+Note on printing *tibble*/*data frame* objects: The generic *print()* function only prints out the highest 3 digits. It doesn't add any padding to the numbers in a dataframe's columns which may lead to uneveness in how they are displayed. Using the *round()* or similar functions will not help. However, we can use *print.data.frame()* to avoid the problem.
+```{r}
+test <- tibble(var1 = c(0.12345, 1.2345, 12.345),
+               var2 = c(123.45, 1234.5, 12345))
+
+test %>% round(2) %>% print
+test %>% round(2) %>% print.data.frame
+```
+
+
+## Function *mutate*
+
+Use the *iris* data as a base to generate a test data frame.
+```{r}
+df <- mutate(iris,
+             # Various ways to create a sequential row/ID number
+             x1 = row_number(),
+             x2 = seq_along(x1),
+             x3 = seq(1, n()),
+             x4 = 1:n(),
+             # Useful logical functions to check how close the values
+             x5 = identical(x1, x2),
+             x6 = near(x1, x2, tol = 2),
+             # Generate random-number variables
+             x7 = runif(n(), min = 1, max = 75)
+       ) %T>% str
+```
+
+
+## Function *rename* to rename existing variables
+
+```{r}
+rename(df,
+       sepal_length = Sepal.Length,
+       sepal_width = Sepal.Width
+       ) %>% str
+```
+
+Variables can also be renamed using *select*. The difference is that only the renamed variables will be retained, all others will be dropped.
+```{r}
+select(df,
+       sepal_length = Sepal.Length,
+       sepal_width = Sepal.Width
+       ) %>% str
+```
+
+
+## Helper functions for *select* and some scoped functions
+
+There are a number of special functions that only work inside select, and some scoped versions of other dplyr functions (e.g., *mutate_at*). They are, *starts_with*, *ends_with*, *contains*, *matches*, *num_range*, *one_of*, and *everything*.
+
+This is how the function *select* can be combined with helper functions to select variables that are to be kept/dropped:
+```{r}
+select(df, Sepal.Length, Sepal.Width) %>% str
+select(df, -Sepal.Length, -Sepal.Width) %>% str
+
+select(df, starts_with("sepal", ignore.case = TRUE)) %>% str
+select(df, ends_with("width", ignore.case = TRUE)) %>% str
+select(df, contains("spec", ignore.case = TRUE)) %>% str
+select(df, matches("(.*)pal.len(.*)", ignore.case = TRUE)) %>% str
+
+select(df, num_range("x",1:3)) %>% str
+select(df, x1:x3) %>% str
+```
+
+
+## Function *filter* 
+
+The function filters observations from a given data frame based on a given condition.
+```{r}
+df <- tibble( x = c(rep("A", 5), rep("B", 3), rep("C", 6)),
+              y = c(1, NA, 10, 100, 100, 2, NA, 20, 3, 30, 30, NA, 300, 3000) )
+```
+
+To filter observations, we can use boolean operators, specify values in (or not in) a list; also not the use of `is.na()` and its negation to select (non-) missing observations, etc.
+```{r}
+df %>% filter( y <= 200 )
+df %>% filter( x == "A" & y <= 200 )
+df %>% filter( x == "A" | y <= 200 )
+df %>% filter( !is.na(y) )
+df %>% filter( x %in% c("A", "C") )
+df %>% filter( !(x %in% c("A", "C")) )
+```
+
+
+## Scoped functions *mutate_all*, *mutate_at*, and *mutate_if*
+
+Note that similar logic and syntax applies to the "scoped" version of other dplyr's functions (for example, *rename_all*, *rename_at*, *rename_if*, etc.).
+
+```{r}
+df <- mtcars %>% select(mpg, cyl, wt, qsec) %>% as_tibble
+```
+
+Note that we can use either existing R functions or define our own. Also note that the original variables will be overwritten unless new variables are specified (see the next example).
+```{r}
+df %>%
+   mutate_at(.vars = vars(mpg, qsec),
+             .funs = function(x) {x/x*1000}) %>% head
+```
+
+Above we specified which variables are being selected. The same could be achieved by specifying which are to be excluded using the minus-sign notation:
+```{r}
+df %>%
+   mutate_at(.vars = vars(-cyl, -wt),
+             .funs = function(x) {x/x*1000}) %>% head
+```
+
+Another example defines a custom function outside of the pipeline. Below, the function *myfct* takes an existing variable and threshold value as arguments, and returns *TRUE* (if the value of the variable is below the threshold) or *FALSE*. However, the return from this function is saved in a new varible (i.e., the old one is not overwritten). This is achieved by providing the new variable names in the *vars()* statement.
+```{r}
+myfct <- function(x, threshold) { ifelse(x < threshold, TRUE, FALSE) }
+
+df %>%
+   mutate_at(.vars = vars(mpg_test = mpg, qsec_test = qsec),
+             .funs = funs(myfct(., 19))) %>% head
+```
+
+
+## Other useful functions & operations
+
+### Functions *first*, *last*, *nth*, *lag*, *lead*
+
+These functions allow us to refer to specific observations of a variable in the data frame we are working with.
+```{r}
+tibble(x = 1:5) %>%
+   mutate(x_first = first(x),
+          x_last  = last(x),
+          x_third = nth(x, 3),
+          x_lag   = lag(x),
+          x_lead  = lead(x),
+          x_lag2  = lag(x, 2),
+          x_lead2 = lead(x, 2))
+```
+
+### Function to create a within-group ID, observation count, and unique value count
+
+There are two ways to generate a within-group ID in the form of an integer sequence. One is a more general and longer way through specifying the grouping variables (groups can be define by values of one or more categorical variable). The other way is to use dplyr's *group_indices()* function.
+```{r}
+set.seed(123)
+
+id_grp = sample(c("A", "B", "C", "D"), 15, replace = TRUE)
+id_row = 1:15
+
+# (1) Grouping observations on the values of one or more categorical variables
+
+tibble( id_row, id_grp ) %>%
+   #
+   # Force commands to be executed by groups of specific variable(s)
+   group_by(
+      id_grp
+   ) %>% 
+   #
+   # Create more variables on the whole 'ungrouped' dataset
+   mutate(
+      nobs_within_grp = n(),
+      id_within_grp = row_number()
+   ) %>% 
+   arrange(
+      id_grp,
+      id_within_grp
+   ) %>% 
+   #
+   # End executing commands by groups
+   ungroup() %>%
+   #
+   # Create more variables on the whole 'ungrouped' dataset
+   mutate(
+      nobs_total = n()
+   )
+
+# (2) Using 'dplyr::group_indices()' fuction
+
+tibble( id_row, id_grp ) %>%
+   mutate( 
+      nobs_within_grp = group_indices(., id_grp),
+      id_within_grp = group_indices(., id_grp, id_row),
+      nobs_total = n()
+   ) %>% 
+   arrange(
+      id_grp,
+      id_within_grp,
+      id_row
+   )
+```
+
+
+Note that *group_by()* can be used together with *summarize()* to collapse the dataset into another one that contains whichever statistics we want. In the example below, we collapse it into a summary containing the number of unique values of a variable `var` within each of the groups in the variable `id_grp`.
+```{r}
+tibble( id_grp, var = c(rep("x",2), rep("y",6), rep("z",7)) ) %>%
+   #
+   # Force commands to be executed by groups of specific variable(s)
+   group_by(
+      id_grp
+   ) %>%
+   #
+   #
+   summarize(
+      nuvals = unique(var) %>% length
+   )
+```
+
+
+### Order variables in a dataset alphabetically
+
+```{r}
+df <- tibble (z = round(runif(10), 2), y = z/10, x = z*10 ) %T>% print.data.frame()
+df %>% select( sort(colnames(.)) )
+```
+

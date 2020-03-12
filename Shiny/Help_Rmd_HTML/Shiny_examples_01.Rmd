@@ -1,0 +1,409 @@
+---
+title: "Interactive documents with Shiny"
+output:
+   # word_document
+   html_document:
+      css: custom_css.css
+      # theme: cerulean
+      toc: true
+      toc_depth: 4
+      number_sections: true
+      code_folding: show
+runtime: shiny
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = " ")
+```
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+
+lapply(c("DT",
+         "gtools",
+         "htmlwidgets",
+         "lubridate",
+         "magrittr",
+         "shiny",
+         "stringr",
+         "tidyverse"), library, character.only = TRUE)
+
+# setwd(file.path("C:","Users","MK","Documents","_pCloud_Sync_offline","Examples","R"))
+# setwd(file.path("F:", "Examples", "R"))
+```
+
+
+Function reference for Shiny <https://shiny.rstudio.com/reference/shiny/1.1.0/>. For interactive docs <https://rmarkdown.rstudio.com/authoring_shiny.html>
+
+
+# Functions for defining and rendering UI input widgets
+
+Functions for creating interface elements (widgets) that prompt the user for input values or interaction, along with functions that render these elements.
+
+## Select box
+
+Usage: selection of one or more items from a finite set of items.
+```{r}
+selectInput(
+   inputId  = "test_select_box",
+   label    = "Select one or more items:",
+   choices  = c("Value A label" = "A",
+                "Value B label" = "B",
+                "Value C label" = "C"),
+   multiple = TRUE,
+   selected = "A"
+)
+```
+
+We can see what an interaction with the select box yields using *renderPrint* or *renderText* (note the difference).
+```{r}
+renderPrint(input$test_select_box)
+renderText(input$test_select_box)
+```
+
+
+## Slider
+
+Constructs a slider widget to select a numeric value from a range. If the slider is set to one intial value, then the slider can select only the right end of the interval. If there is a 2-vector for the value, then the slider will allow to choose both the left and right ends of the interval. Note that the numeric arguments of the slider function can be assigned values based, e.g., on statistics calculated from a numeric object (such as the vector *x* below).
+```{r}
+x <- floor(runif(10, min = -5, max = 5)); x
+```
+
+A slider to choose a single value:
+```{r}
+sliderInput(
+   inputId = "slider_example",
+   label   = "Use the slider to choose a value:",
+   min     = min(x),
+   max     = max(x),
+   value   = sum(range(x))*0.5
+)
+
+renderPrint(input$slider_example)
+```
+
+A slider to choose the beginning and end of an interval:
+```{r}
+sliderInput(
+   inputId = "interval_slider_example",
+   label   = "Use the slider to choose an interval of values:",
+   min     = min(x),
+   max     = max(x),
+   value   = c(min(x) + 2.5, max(x) - 2.5)
+)
+
+renderPrint(input$interval_slider_example)
+```
+
+
+## Checkbox
+
+A simple checkbox can be used to make a binary choice between logical values (*TRUE* if checked, *FALSE* if unchecked).
+```{r}
+checkboxInput(
+   inputId = "checkbox_example",
+   label   = "Label for binary-choice checkbox",
+   value   = TRUE # The box is checked
+)
+
+renderPrint(input$checkbox_example)
+```
+
+A group of checkboxes can be used to toggle multiple choices independently (they are not mutually exclusive). The server will receive the input as a character vector of the selected values.
+```{r}
+checkboxGroupInput(
+   inputId  = "group_checkbox_example",
+   label    = "Label for multiple-choice checkbox",
+   choices  = c("Value A label" = "A",
+                "Value B label" = "B",
+                "Value C label" = "C"),
+   selected = c("A","C") # Two choices selected
+)
+
+renderPrint(input$group_checkbox_example)
+```
+
+
+## Radio buttons
+
+Radio buttons are used to select an item from a list. They allow for a single choice from a list of mutually exclusive choices.
+```{r}
+radioButtons(
+   inputId  = "radio_button_example",
+   label    = "Label for radio button",
+   choices  = c("Value A label" = "A",
+                "Value B label" = "B",
+                "Value C label" = "C"),
+   selected = "A", # Only one can be selected
+   inline = FALSE
+)
+
+renderPrint(input$radio_button_example)
+```
+
+
+### Numeric input
+
+Create an input control for entry of numeric values.
+```{r}
+numericInput(inputId = "numeric_input_example",
+             label   = "Label for numeric input",
+             value   = 0,
+             min     = 0,
+             max     = NA,
+             step    = 0.5
+)
+
+renderPrint(input$numeric_input_example)
+```
+
+
+### Date input
+
+Create an input control for selecting/entering date.
+```{r}
+dateInput(inputId   = "date_input_example",
+          label     = "Choose date",
+          value     = NULL,
+          min       = NULL,
+          max       = NULL,
+          format    = "yyyy-mm-dd",
+          startview = "year",
+          weekstart = 0,
+          language  = "en",
+          autoclose = FALSE
+)
+
+renderPrint(input$date_input_example)
+```
+
+It is also possible to have a widget select a range of dates (from-to):
+```{r}
+dateRangeInput( inputId   = "date_range_input_example",
+                label     = "Choose date range",
+                start     = NULL,
+                end       = NULL,
+                min       = NULL,
+                max       = NULL,
+                format    = "yyyy-mm-dd",
+                startview = "month",
+                weekstart = 0,
+                language  = "en",
+                separator = " to ",
+                width     = NULL,
+                autoclose = TRUE)
+
+renderPrint(input$date_range_input_example)
+```
+
+
+### File browsing
+
+Create a file selection (upload) control that can be used to upload one or more files.
+```{r}
+fileInput(inputId     = "file_input_example",
+          label       = NULL,
+          multiple    = FALSE,
+          accept      = NULL,
+          width       = NULL,
+          buttonLabel = "Browse for file(s)",
+          placeholder = "No file selected")
+
+renderPrint(input$file_input_example)
+```
+
+
+### Text input fields
+
+We can have a single-line input control for an entry of unstructured text:
+```{r}
+textInput(inputId = "text_input_example",
+          label = NULL,
+          value = "",
+          width = NULL,
+          placeholder = "Type your text here.")
+
+renderText(input$text_input_example)
+renderPrint(input$text_input_example)
+```
+Or we can have the text on more than one line:
+```{r}
+textAreaInput(inputId     = "text_area_input_example",
+              label       = NULL,
+              value       = "",
+              width       = NULL,
+              height      = NULL,
+              cols        = NULL,
+              rows        = NULL,
+              placeholder = NULL,
+              resize      = NULL)
+
+renderText(input$text_area_input_example)
+renderPrint(input$text_area_input_example)
+```
+
+
+### Action button
+
+```{r}
+actionButton(inputId = "action_button_example",
+             label   = "Take action!")
+```
+
+
+### Submit button
+
+```{r}
+submitButton(text = "Submit something here!")
+```
+
+
+### Password input
+
+```{r}
+passwordInput(inputId     = "password_example",
+              label       = "Type your password",
+              value       = NULL,
+              placeholder = "Your birthday is your password")
+```
+
+
+## Get the HTML and JavaScript code underlying the Shiny objects
+
+The function *renderPrint*, when applied to the Shiny object definition, will print the underlying HTML/JS code:
+```{r}
+# renderPrint(
+#    textInput(
+#       inputId = "text_input_example",
+#       label = "Textbox",
+#       value = "",
+#       placeholder = "Type your text here.")
+# )
+```
+
+
+# DT package to utilize DataTable.js library in R
+
+Let us generate a data frame *df* that contains a variety of variable classes.
+```{r echo = FALSE}
+nobs <- 100
+
+words <- c("plan","arc","futuristic","trucks","team","frame","odd","sail") %>% 
+   permutations(n = length(.), r = 3, v = ., repeats.allowed = FALSE) %>% 
+   apply(., MARGIN = 1, FUN = paste, collapse = " ")
+   
+
+df <- tibble(
+   date          = as.Date(1:nobs, origin = "2018-05-15"),
+   n_of_items    = runif(nobs, min = 1, max = 5.5) %>% round(0) %>% as.integer,
+   class         = sample(c("c1", "c2", "c3"), nobs, replace = TRUE) %>% as.factor,
+   subclass      = sample(paste0("subc", 1:4), nobs, replace = TRUE) %>% as.factor,
+   best_in_class = runif(nobs, min = 0, max = 1) %>% round(0) %>% as.logical,
+   amount_in_cad = round(runif(nobs, min = 500, max = 5000), 3),
+   amount_in_usd = round(runif(nobs, min = 500, max = 5000), 3),
+   growth_rate   = round(runif(nobs, min = -0.5, max = 2), 3),
+   some_strings  = sample(words, nobs, replace = TRUE)
+   )
+```
+
+```{r}
+str(df)
+```
+
+
+## Initialization options
+
+The default settings renders a data table as follows:
+```{r}
+options(DT.options = NULL) # Reset global options to defaults
+datatable(df)
+```
+
+The function *datatable* from the *DT* package creates an HTML table following default settings for the format. However, the *DataTables.js* library has a large number of initialization options, which make it very flexible to customize tables. We can specify these options in an R list, and the *datatable* function will automatically convert them to JSON (needed by *DataTables.js*).
+
+Let's define some custom initialization options. Note the use of a plug-in in the last line.
+```{r}
+custom_options <- list(# (1) Display only the first 5 rows
+                        pageLength = 5,
+                        # (2) Rename 'sSearch' (the search/filter window) to 'Filter:'
+                        language = list(sSearch = "Filter:"),
+                        # (3) Enable case-insensitive search using regex
+                        search = list(regex = TRUE, caseInsensitive = FALSE),
+                        # (4) order obs. by the values of columns 3 (asc.) and 4 (desc.)
+                        order = list(list(3, "asc"), list(4, "desc")),
+                        # A plug-in that highlights lexical search hits
+                        searchHighlight = TRUE
+                        )
+```
+
+The options can be specified either locally (for a single specific table, within one instance of the *datatable* function)
+```{r}
+datatable(df, options = custom_options ) # Single-table application
+```
+or globally for all data tables by including *options(DT. options = ...)* as a standalone line of code, or by including it into specs for any specific table.
+```{r}
+options(DT.options = custom_options ) # This will apply to all tables from this point on
+```
+
+
+## Additional options
+
+We can change specific elements of the format by tweaking the various options in the *datatable* function:
+```{r}
+dt_01 <- df %>%
+   datatable(
+      # (1) Hide the row names
+      rownames = FALSE,
+      # (2) Change the format of the column names to uppercase and remove underscores
+      # (note that this is only a cosmetic change that doesn't change the underlying
+      # variable names)
+      colnames = gsub("_", " ", colnames(df)) %>% toupper,
+      # (3) Add a filter to each column
+      filter = list(position = "top"),
+      # (4) Make the table cells editable
+      editable = TRUE
+      ); dt_01
+```
+
+
+### Format columns using helper functions
+
+Several helper functions allows us to tweak the format of columns. For example, below we set certain numeric variables as (1) a specific currency (Canadian dollars using symbol C$), (2) percentages, or (3) dates. We can also change aspects of the column style using attributes in *formatStyle*
+```{r}
+# Define some custom colors
+or1 <- rgb(218,  99,  93, maxColorValue = 255) # orange 1
+gb1 <- rgb(212, 217, 222, maxColorValue = 255) # grey-blue 1
+gb2 <- rgb(112, 128, 144, maxColorValue = 255) # grey-blue 2
+gb3 <- rgb( 54,  69,  79, maxColorValue = 255) # grey-blue 3
+
+dt_01 %>% 
+   formatCurrency("amount_in_cad", currency = "C$", digits = 1, dec.mark = ".") %>% 
+   formatPercentage("growth_rate", digits = 2) %>% 
+   formatDate("date", method = "toDateString") %>% 
+   formatStyle(columns = "growth_rate",
+               color = "white",
+               fontWeight = "bold",
+               backgroundColor = gb3)
+```
+
+
+### Cells
+
+```{r}
+dt_01 %>%
+   # Cell background color by class/category (2 or more categories)
+   formatStyle("class",
+               target = "cell",
+               backgroundColor =styleEqual(c("c1", "c2", "c3"), c("none", gb1, gb2))) %>%
+   # Cell and font colors based on the numeric values
+   formatStyle(columns = c("amount_in_cad", "amount_in_usd"),
+               color = styleInterval(c(1000, 3000), c("green", "red", "navy")),
+               backgroundColor = styleInterval(mean(df$amount_in_cad), c(gb1, or1))) %>%
+   # Bars inside cells corresponding to the numeric value
+   formatStyle("n_of_items",
+               background = styleColorBar(df$n_of_items, "lightblue"),
+               backgroundSize = "95% 75%",
+               backgroundRepeat = "no-repeat",
+               backgroundPosition = "center" )
+```
+

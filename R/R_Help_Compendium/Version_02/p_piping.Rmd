@@ -1,0 +1,96 @@
+
+# Code pipelines using *magrittr*
+
+A good source of information for the package is <https://rdrr.io/cran/magrittr/man/>. Note that while *magrittr* is now a part of the *tidyverse* collection of packages, the version loaded with *tidyverse* seems limited (e.g., aliases for math operators don't work.)
+
+```{r warning = FALSE, message = FALSE, results = 'hide'}
+rm(list = ls())
+```
+
+## Introduction to pipelines
+
+Typically, the assignment is placed at the very beginning of the *pipeline*, but it is possible to put inside or at the end using the `{.} -> object_name` construct.
+```{r, eval = FALSE}
+xbar <- c(1:5) %>% mean
+c(1:5) %>% mean %>% {.} -> xbar
+```
+
+
+## Math operations inside pipelines
+
+Boolean and arithmetic operators inside a pipeline have to enclosed between backticks. Alternatively, aliases (special expressions) can be used to specify an operator literally. More about aliases on <https://rdrr.io/cran/magrittr/man/aliases.html>.
+
+```{r, eval = FALSE}
+1:5 %>%  `*`(10)
+1:5 %>% multiply_by(10)
+
+1:5 %>%  `/`(10)
+1:5 %>% divide_by(10)
+```
+
+
+## Setting column/row/variable names inside pipelines
+
+Similarly to math operators, setting names can also be done using backtics or aliases inside a pipeline. For example, let's create a 5x2 matrix and name its columns and names:
+```{r, eval = FALSE}
+X <- matrix(1:10, nrow = 5)
+
+X %>% `colnames<-` (c("col1","col2"))
+X %>% set_colnames(c("col1","col2"))
+
+X %>% `rownames<-` (paste("row", c(1:5), sep =""))
+X %>% set_rownames(paste("row", c(1:5), sep =""))
+```
+
+We can also name variables in a data frame in a similar way:
+```{r, eval = FALSE}
+df <- matrix(1:15, nrow = 5) %>% data.frame
+df %>% `names<-` (paste("var", c(1:3), sep =""))
+df %>% setNames(paste("var", c(1:3), sep = ""))
+```
+
+
+## Additional pipe operators
+
+
+### The compound-assignment pipe operator: `%<>%`
+
+the compound-assignment operator pipes and object into a function or call expression, and then updates the left-hand side (LHS, the initial input object) with the resulting value. In the example below, the LHS is a numeric vector `x` which is then multiplied by 10, and the result of this is assigned back to `x`. Therefore the following two pipelines are equivalent:
+```{r, eval = FALSE}
+x %<>% multiply_by(100)      # Compound-assignment operator
+x <- x %>% multiply_by(100)  # Standard pipe operator combined with assignment
+```
+
+
+### The tee pipe operator: `%T>%`
+
+It is sometimes useful to call a function for its side-effects (e.g., if we want to print or plot an object, or save it to a disk). That is (a) we don't want to send the result of the step, or (b) there is nothing to be sent as some functions don't return anything. In that case, we send down the pipeline the object from the left-hand side of the tee operator.
+
+The following examples first apply `str` function to a 5x2 numeric matrix.
+```{r}
+xmat <- c(1:12) %>% matrix(ncol = 3)
+```
+The next step of the pipeline is a multiplication by 10. What gets multiplied depends on which operator has been used before the `str` function step. In the first example, since `str` function returns a non-numeric example, the multiplication attempt throws an error.
+```{r}
+xmat %>% str %>% multiply_by(10)
+```
+In the second example, the `%T>%` operator stops the output of `str` from being propagated into the next step in the pipeline. Instead, the object from the previous step, `xmat` itself, is pushed into the multiplication step.
+```{r}
+xmat %T>% str %>% multiply_by(10)
+```
+
+
+### The exposition pipe operator: `%$%`
+
+The `%$%` operator exposes the names in left-hand side to the right-hand side expression. This is useful when functions do not have a built-in data argument. 
+
+This comes particularly useful when the pipeline needs to use functions that can't work with variables in a data frame directly. For example, `cor(x,y)` calculates the correlation coefficient between two vectors, `x` and `y`, and will throw an error if we try to supply it with names of variables from a data frame.
+```{r, error = TRUE}
+mtcars %>% cor(mpg, cyl)  # Standard pipe operator throws an error
+```
+
+Using the `%$%` operator "explodes" out the variables in a data frame so that they can be refered to explicitly in the pipeline.
+```{r}
+mtcars %$% cor(mpg, cyl)  # Exposition pipe operator works fine
+```
+

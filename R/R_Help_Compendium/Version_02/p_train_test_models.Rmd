@@ -1,0 +1,160 @@
+# Training and testing supervised-learning models
+
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+
+datadir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Data"
+
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+# funcdir <- "F:/Examples/R/Functions"
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+```
+
+
+## Splitting data into training and testing datasets
+
+Let's use sample data on cars to illustrate the estimation and post-estimation functions.
+```{r warning = FALSE, message = FALSE}
+df <- read_csv(paste(datadir, "auto_dta.csv", sep = "/")) %>% 
+   mutate(
+      foreign = as.factor(foreign == "Foreign"),
+      ln_price = round(log(price),3),
+      heavy = ifelse(weight > mean(weight), 1, 0) ) %>% 
+   select(
+      foreign,
+      ln_price,
+      mpg,
+      heavy )
+
+df %>% tbl_str(n_examples = 2)
+```
+
+```{r}
+set.seed(123)
+obs_for_training <- createDataPartition(df$foreign, p = 0.85, list = FALSE)
+df_train <- df[obs_for_training, ]
+df_test <- df[-obs_for_training, ]
+
+df_train %>% tbl_str(n_examples = 2)
+df_train %>% select(foreign) %>% tbl_freq()
+
+df_test %>% tbl_str(n_examples = 2)
+df_train %>% select(foreign) %>% tbl_freq()
+```
+
+
+## Training models
+
+
+### Logistic regression
+
+Using the function *glm()*, we to fit a binomial logit model to the response variable *foreign* (1 if the car is of foreign make, 0 otherwise).
+```{r}
+train_logit <-  train( foreign ~ ln_price + mpg + heavy,
+                       data = df_train,
+                       method = "glm",
+                       family = binomial(link = "logit") )
+
+train_logit_to_compare <- glm( foreign ~ ln_price + mpg + heavy,
+                               data = df_train,
+                               family = binomial(link = "logit") )
+```
+
+Compare coefficient estimates from direct *glm()*, and those from *train()* with method set to *glm*.
+```{r}
+cbind( caret = coef(train_logit$finalModel),
+		 glm = train_logit_to_compare$coefficients )
+```
+
+
+
+```{r}
+yhat1a = predict(train_logit, newdata = df_test, type = "prob")
+yhat1b = predict(train_logit, newdata = df_test, type = "raw")
+yhat2 = predict(train_logit_to_compare, newdata = df_test, type = "response")
+cbind.data.frame(yhat1a, yhat1b, yhat2) %>% View
+yhat3 = yhat2 >= 0.50
+table(yhat2, yhat3)
+```
+
+
+```{r}
+yhat = predict(train_logit, newdata = df_test, type = "raw")
+accuracy <- table(yhat, df_test$foreign); accuracy
+confusionMatrix(data = yhat, df_test$foreign)
+```
+
+
+### Support vector machine (SVM)
+
+
+```{r}
+set.seed(123)
+train_svm_linear <- train( foreign ~ ln_price + mpg + heavy,
+									data = df_train,
+									method = "svmLinear",
+									trControl = trainControl(method = "repeatedcv", number = 10, repeats = 3),
+									preProcess = c("center", "scale"),
+									tuneLength = 10)
+```
+
+```{r}
+yhat_svm = predict(train_svm_linear, newdata = df_test, type = "raw")
+accuracy <- table(yhat_svm, df_test$foreign); accuracy
+confusionMatrix(data = yhat_svm, df_test$foreign)
+```
+
+
+### Artificial neural network (nnet with caret)
+
+```{r}
+numFolds <- trainControl(method = 'cv',
+								 number = 10,
+								 classProbs = TRUE,
+								 verboseIter = TRUE,
+								 summaryFunction = twoClassSummary,
+								 preProcOptions = list(thresh = 0.75, ICAcomp = 3, k = 5))
+set.seed(123)
+
+
+train_nnet <- train( foreign ~ ln_price + mpg + heavy,
+							data = df_train,
+							method = "nnet",
+							preProcess = c("center", "scale"),
+							#trControl = numFolds,
+							tuneGrid = expand.grid(size = c(10), decay = c(0.1)))
+```
+
+```{r}
+yhat_nnet = predict(train_nnet, newdata = df_test, type = "raw")
+accuracy <- table(yhat_nnet, df_test$foreign); accuracy
+confusionMatrix(data = yhat_nnet, df_test$foreign)
+```
+
+## Testing the model
+
+The *predict()* function can be used to calculate predicted probabilities using the estimated models. In the code below we predict probabilities for every observation in the dataset *df* (which we used previously to estimate the models). Note that the `type = "response"` has to be specified to get the predicted probalities.
+
+Once we have the predicted probabilities, we choose a threshold (e.g. `phat > 0.50`) over which we set `yhat = TRUE` (the prediction is that the car is *foreign*).
+```{r}
+phat_logit <- predict(object = train_logit,
+                      newdata = df[c("foreign", "ln_price", "mpg", "heavy")],
+                      type = "prob") %>% round(3)
+
+names(phat_logit) <- names(phat_logit) %>% tolower() # Names TRUE and FALSE are problematic
+
+cbind.data.frame( df, phat = phat_logit$true ) %>% 
+   mutate( yhat = phat >= 0.50 ) %>% 
+   arrange( desc(phat) ) %>% 
+   filter( row_number() %in% c(15:25) )
+```
+

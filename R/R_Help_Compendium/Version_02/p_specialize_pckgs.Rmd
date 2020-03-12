@@ -1,0 +1,28 @@
+
+# Various specialized packages
+
+
+## Package *alphavantager*
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+```
+
+*Alpha Vantage* is a free service that enables users to get real-time and historical financial data. To access the service one has to obtaine a free-of-charge API key. The following function allows to set the API key:
+```{r}
+av_api_key("ABNHXIMTX5J2FFU8")
+print(av_api_key()) # Display the key currently in use
+```
+
+Retrieve trading data for SPY symbol (S&P500 ETF) from Alpha Vantage. Note that the *av_fun* option specifies whether the series is to be daily or intraday; the option *outputsize* allows us to retrieve either the last 100 observations (*compact*) or all of them (*full*); the option *interval* is self-explanatory:
+```{r}
+av_get( symbol     = "SPY",
+        av_fun     = "TIME_SERIES_DAILY",
+        outputsize = "compact")
+
+av_get( symbol     = "SPY",
+        av_fun     = "TIME_SERIES_INTRADAY",
+        interval   = "15min",
+        outputsize = "full")
+```
+

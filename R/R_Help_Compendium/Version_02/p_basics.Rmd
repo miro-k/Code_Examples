@@ -1,0 +1,495 @@
+
+# Basics
+
+
+## System, workspace and session
+
+Functions that return the current date, time and version of R currently running.
+```{r, eval = FALSE}
+Sys.Date()  # Returns today's date (class "Date" obj.)
+date()      # Returns today's date and time ("chr" object)
+version     # Basic info about the version of R running
+```
+
+Functions that deal with directories.
+```{r, eval = FALSE}
+getwd()         # Get the current work directory
+setwd("C:\wd")  # Set the work directory
+dir()           # Display the content of the current directory
+dir("C\wd")     # Display the content of a specified directory
+```
+
+The function `options` can be used to display, set or change options for the current R session.
+```{r, eval = FALSE}
+options()            # View options for the current R session
+```
+
+Here is an example of setting the maximum number of digits printed on the screen. Note that if digits = 3, no room will be left for the decimals at hundreds and above.
+```{r}
+options(digits = 3)
+1.23456789; # 3 digits shown, i.e. only 2 decimals
+12.3456789; # 3 digits shown, i.e. only 1 decimal
+123.456789; # No decimals for hundreds and above
+1234.56789; # No decimals, rounded to 1235
+```
+
+Function to display the command history.
+```{r, eval = FALSE}
+history()                # Display last 25 commands
+history(max.show = Inf)  # Display all previous commands
+```
+
+There are several functions for working with objects (`o1`, `o2`, etc.) in the R workspace. We can use the `ls` to get the list of objects in the current workplace. The function `rm` is used to remove objects from the workspace.
+```{r, eval = FALSE}
+ls()                       # List all objects in the workspace
+ls(all.names = TRUE)       # As above & including objecst starting with "."
+rm(list = ls())            # Remove all objects
+rm(list = c("o1", "o2"))   # Remove specified objects
+rm(o1, o2)                               # The same as the previous
+rm(list = setdiff(ls(), c("o1", "o2")))  # Remove all but the specified ones
+```
+
+The functions `ls` and `rm` can be combined with regular expressions to remove objects whose names follows a specific regex pattern.
+```{r, eval = FALSE}
+rm( list = ls(pattern = "^x") )   # Remove objects that start with 'x'
+rm( list = ls(pattern = "\\d$") ) # Remove objects that end with a digit
+```
+
+They can also be to list/remove specific types of objects:
+```{r, eval = FALSE}
+
+lsf.str()                            # List the names of all functions in the workspace
+rm(list = lsf.str())                 # Remove all functions, keep the rest
+rm(list = setdiff(ls(), lsf.str()))  # Remove all objects except functions
+rm(list = setdiff(ls(all.names = TRUE), lsf.str(all.names = TRUE))) # As above & some
+```
+
+
+## Numbers and number formats
+
+Also see `options(digits = 3)` example above. To find out the current options for the scientific/exponential (also called engineering) format run:
+```{r}
+options()$scipen
+```
+
+
+### Exponential/scientific notation
+
+The exponential/scientific number format can be problematic. A large integer could be and ID, but if it's formatted using the scientific notation, it'll become and "incorrect" when it is forced into a character string. It's a good precaution to set the threshold for scientifc notation to kick in very high in the options. By default `options("scipen" = 0)` means that the scientific notations kicks in at `1e+05`; setting `scipen` to a negative integer will cause the scientific notation to kick sooner, and setting it to a positive integer will cause it to kick in later. To avoid scientific notation altogether, set `options("scipen"= 1000)`, or another very high value.
+
+In the following examples, note what happens when the integers is coerced into character strings:
+```{r}
+options("scipen" = -1) # # The default is scient. notation kicks in at 1e+04
+
+df <- tibble( xnum = c(100, 1000, 10000, 100000, 1000000) ) %>% 
+   mutate( xchr = as.character(xnum),
+           nchar_xchar = nchar(xchr),
+           nchar_xnum = nchar(xnum) )
+df
+```
+
+
+## External files
+
+The function `source` allows us to include R code that is store in another R script file.
+```{r, eval = FALSE}
+source("external_script.R") 
+```
+
+The is also a family of `file.` functions that facilitation creation/changes/manipulations of files from within R.
+```{r, eval = FALSE}
+file.create("test.txt", showWarnings = TRUE)
+file.exists("test.txt")
+file.copy(from = "test.txt", to = "new_test.txt")
+file.rename(from = "new_new_test.txt", to = "renamed_test.txt")
+file.append("test.txt", "new_test.txt")
+file.remove( c("test.txt", "new_test.txt", "renamed_test.txt") )
+```
+
+
+## Paths
+
+### Search path
+
+The function `.libPaths` returns a character vector containing the locations that are currently in the search path.
+```{r}
+.libPaths()
+```
+
+Add a new location to the ones already in the search path.
+```{r}
+.libPaths(c("F:/Examples/R", .libPaths()))
+.libPaths()
+```
+
+### Paths to directories and files
+
+Of the two ways to specifying the path shown below, `file.path` is prefered and faster. It is platform independent; there is no need to specify the separator which depends on the operating system. Note that the period, `.`, stands for the current working directory.
+```{r}
+file.path(".", "Subfolder", "Subsubfolder")
+paste(".", "Subfolder", "Subsubfolder", sep = "/")
+```
+
+
+## Packages
+
+### Loading & unloading (detaching) packages
+
+The folowing functions facilitates loading, unloading and listing packages in the current R session.
+```{r, eval = FALSE}
+search()                       # List all packages currently loaded
+names(sessionInfo()$otherPkgs) # List all packages other than the default ones
+grepl("rstudio"), search())    # Check if a specific package is loaded
+library(packagename)           # Load a specific package so that it can be used
+detach("package:packagename", unload=TRUE)  # Unload a specific package
+```
+
+It is possible to use functions from a package without loading the package. To do so, the function has to be preceded by the package name followed by two collons.
+```{r}
+stringr::str_detect(letters[1:5], "a|b")  # Using a function from the 'stringr' package
+```
+
+
+### Installing, uninstalling and updating packages
+
+The function `installed.packages` returns a matrix containing much information about installed package(s).
+```{r, eval = FALSE}
+installed.packages()      # Information about all installed packages
+installed.packages()[,1]  # Display (the names of) all installed packages
+any(grepl("packagename", installed.packages()))  # Is a specific package installed?
+```
+
+Installing and uninstalling of packages is straigthforward if the package resides in CRAN
+```{r, eval = FALSE}
+install.packages("packagename") # Install a package
+remove.packages("packagename")  # Remove (uninstall) a package
+```
+
+Packages can also be installed from Github or from an archive (zip) file.
+```{r, eval = FALSE}
+install.packages( 
+   "C:/Packages/imager_0.41.1.zip",
+   lib = "F:/Examples/R/Packages",
+   repos = NULL,
+   type = "win.binary"
+)
+```
+
+Using `lapply` or `purrr::map` (from the *purrr* package), multiple packages can be installed/loaded in one step.
+```{r, eval = FALSE}
+# lapply(c("p1", "p2", "p3"), install.packages, dependencies = TRUE)
+# lapply(c("p1", "p2", "p3"), library, character.only = TRUE)
+```
+
+There are also options in the tunctions `install.packages` and `library` that can be used to specify from which location the packages are to be installed/called from.
+```{r, eval = FALSE}
+# install.packages("package_name", lib = "C:/package_location")
+# library(package_name, lib.loc = "C:/package_location")
+```
+
+We can also update already installed packages.
+```{r, eval = FALSE}
+old.packages() # Check which installed packages can be updated
+update.packages(checkBuilt = TRUE, ask = FALSE) # Update all installed packages
+```
+
+Another way to update installed packages is to reinstall them.
+```{r, eval = FALSE}
+pckgs <- installed.packages()[,1] # Extract names of installed packages
+install.packages(pckgs)           # Reinstall the packages
+```
+
+After installing a new version of R, the following procedure has been recommended to reinstall all packages that one had installed prior to updating R:
+
+- Step 1: Generate a data file that contains the names of the installed packages and save it. Usually we care only for the user-installed ones (priority == NA). Presumably the rest gets installed with the new version of R.
+```{r, eval = FALSE}
+pckgs <- installed.packages()
+pckgs <- as.vector(pckgs[is.na(pckgs[,"Priority"]), 1])
+save(pckgs, file = "pckgs.rdata")
+```
+
+- Step 2: Install the new version of R. Then load `package_list.rdata`, get the list of packages that you want to end up with and take a difference between it and the list of packages that were installed with the new version of R. Reinstall the packages, that didn't get installed. Finally, update all packages.
+```{r, eval = FALSE}
+load("pckgs.rdata")
+installed_pckgs <- installed.packages()
+installed_pckgs <- as.vector(installed_pckgs[is.na(installed_pckgs[,"Priority"]), 1])
+missing_pckgs <- setdiff(pckgs, installed_pckgs)
+install.packages(missing_pckgs)
+update.packages()
+```
+
+**Important note:** If a package installation takes too long, it can time out. To prevent it, we can change Sys.sleep settings to 2 minutes in Rprofile, so that it's applied at every R start:
+```{r, eval = FALSE}
+file.edit(file.path("C:/Program Files/R/R-3.4.1/library/base/R", ".Rprofile"))
+trace(utils:::unpackPkgZip, quote(Sys.sleep(2)), at = which(grepl("Sys.sleep", body(utils:::unpackPkgZip), fixed = TRUE)))
+```
+
+
+## Conditional execution
+
+
+### The *if* conditional
+
+An *if* conditional can be a simple one, consisting of *if* and *else* statements, or it can be a longer nested one using additional *if else* step/steps in the structure.
+```{r}
+x <- -3.5
+
+if ( x == 0 ) {
+   cat("x eq 0")
+} else if ( x > 0 ) {
+   cat("x gt 0")
+} else {
+   cat("x lt 0")
+}
+```
+
+Note that this type of conditional does not evaluate a vector. When a vector is passed to an *if* statement, only the its first element is considered, and a warning is printed on the screen. It's possible to iterate over all the elements of the vector using a loop structure, but it's easier to use *ifelse* conditional instead.
+
+
+### The *ifelse* conditional
+
+The *ifelse* is basically a function that test the condition on each component of a given vector and returns a vector. Note that the structure is *ifelse(\<condition\>, \<return if TRUE\>, \<return if FALSE\>)*, and that the structure can be nested by adding another condition in place of the *\<return if FALSE\>* as in the example below. There can be many conditions nested within one structure.
+```{r}
+x <- c(-2, -1, 0, 1, 2)
+
+ifelse(x < 0, "x lt 0", ifelse(x == 0, "x eq 0", "x gt 0"))
+```
+
+
+### The *switch* function
+
+The *switch(\<expr\>, \<arguments\>)* function evaluates *\<expr\>* and accordingly chooses one of the elements from *<\arguments\>*. The following example shows all the various ways of selecting the first element from a list of two returns.
+```{r eval = FALSE}
+switch(1, "one", "two")           # By index: the first element from returns
+switch(1, x = "one", y = "two")   # By index: the first element from named returns
+switch("x", x = "one", y = "two") # By the name of the return element
+```
+
+The switch function can be a convenient way of replacing the *if* conditional, especially inside functions or loops. In the following example we can choose between the *sum* and *prod* functions to apply to numeric values in the given vector. Note the use of the *stop* function to invoke an error message when the operator is not found in the list.
+```{r}
+f <- function(x, oper) {
+   switch(oper,
+          suma = sum(x),
+          produkt = prod(x),
+          stop("Operator not recognized!"))
+}
+```
+
+Quotes are required when referring to a named element of the list of returns (the different names for the operator to be used).
+```{r error = TRUE}
+f(c(5, 10), oper = "produkt")
+f(c(5, 10), oper = "some_operator")
+```
+
+
+### The *cut* function
+
+The *cut* function divides a given range of values into intervals. The leftmost interval corresponds to level 1, the next leftmost to level 2, etc. This is particularly useful when we want to quickly create a categorical variable from the values of a numeric variable. The function codes the values from a given numeric vector according to which interval they fall, and return a factor vector by default.
+```{r}
+xbin <- cut(x = c(-3:3),
+            breaks = c(-Inf, c(-1:1), Inf))
+
+xbin_label <- cut(x = c(-3:3),
+                    breaks = c(-Inf, c(-1:1), Inf),
+                    labels = c("cat1", "cat2", "cat3", "cat4"))
+
+cbind.data.frame(x = c(-3:3), xbin, xbin_label)
+```
+
+
+## Iterations using loops
+
+### *for* loops when output size is known or irrelevant
+
+Using a test object (vector) *x*, demonstrate three looping patterns: looping over a *numeric index*, over *elements* of an R object, and over the *names of the elements* of an R object.
+```{r}
+x <- c(1:5)*100; names(x) <- paste0("x", 1:5); x
+```
+
+1. Loop over a numeric index:  `(i in 1:n)`, or equivalently `(i in seq_len(n))` 
+```{r}
+for (i in 1:5) { cat("i =", i, ", xi =", x[[i]], "\n") }
+```
+
+The end point of a sequence could be specified using the length of *x*, `(i in 1:length(x))`, but it's preferable to use `(i in seq_along(x))` (unproblematic if *x* is an empty vector); also note that `seq_along(x)` is equivalent to `seq_len(length(x))`.
+
+2. Loop over the elements of an object: `(i in x)`; particularly useful for producing graphs, saving files, etc.
+```{r}
+for (i in x) {  cat("i =", i, "\n")  }
+```
+
+3. Loop over the names of elements of an R object: `(i in names(x))`; particularly useful for graphs, file names, etc.
+```{r}
+for (i in names(x)) {  cat("i =", i, ", x[i] =", x[[i]], "\n")  }
+```
+
+
+### *for* loops when output size is unknown
+
+The following example involves generating an a vector of random numbers. The length of the vector is chosen randomly in each iteration. Thus, the length of the final vector that will contain the random numbers from all iterations is a priori unknown. There are two basic ways to do that. One is by iteratively "growing" (adding to) an empty output vector, or place each generated random vector into an appropriate position into a empty list of specified length (equal to the number of iterations). The latter is a faster and, therefore, preferred approach.
+```{r}
+iter <- 10                   # Number of iterations
+out1 <- double()             # Initialize an empty numeric vector
+out2 <- vector("list", iter) # Initialize a list of a specific number of empty vectors
+
+for(i in seq_len(iter)){ 
+   
+   n <- sample(c(2:5), 1)  # Randomly select a sample size 'n' between 2 and 5
+   rx <- runif(n)          # Generate a random vector of length 'n'
+   out1 <- c(out1, rx)     # Grow the empty output vector in each iteration
+   out2[[i]] <- rx         # Place ouptu vector in the i-th position in the list
+}
+
+out3 <- unlist(out2) # Make a vector out of the list (must equal to 'out1')
+
+str(out1)
+str(out2)
+str(out3)
+```
+
+
+### *while* loops
+
+Sometimes we don't even know how many iterations the loop will have - something that happens, for example, in simulations. In such a situation, we just want to continue iterating while a certain condition holds, and stop when it no longer does. In the example below, we want to continue flipping a coin until we get three heads in a row, and we want to know, how many flips it takes to get such a three-head sequence.
+```{r}
+nflips <- 0 # Number of coin flips
+nheads <- 0 # Number of heads
+
+while( nheads < 3){
+   
+   if (sample(c("T","H"), 1) == "H") {
+      nheads <- nheads + 1 # Add 1 if head
+   } else {
+      nheads <- 0 # Reset to 0 if tail
+   }
+   
+   nflips <- nflips + 1
+}
+
+nflips
+```
+
+Note that a while-loop is simpler than a for-loop. It is also more general as we can always rewrite a while-loop as a for-loop but not the other way round (the above example, for instance, can't be expressed as a for-loop because we don't know how many iterations will ultimately be required.)
+
+
+## Functions
+
+
+### Components of a function
+
+Every function has three components: *formal arguments* and, if applicable, their default values, a *body* which is what the function actually does, and an *environment* in which it was defined (not from which it is called, an important difference). There are several R functions we can use to check for the various components of any function.
+```{r eval = FALSE}
+# The base R function 'sd()' calculates standard deviation of a vector of numbers
+
+?sd             # Opens function's help page if one exists
+sd              # Complete definition
+formals(sd)     # Returns function's arguments and their defaults
+body(sd)        # Returns function's body
+environment(sd) # Return the environment in which function was defined
+```
+
+
+### Arguments
+
+
+#### Data and controls
+
+There are usually two types of formal arguments: *data* with which the function does something, and *controls* that specify details of the computation. The controls often have default values (usually the most common ones) specified for them. Using the example of *sd()* above, the data argument is *x* followed by one control that specifies how to treat missing values (*na.rm* set to *FALSE* by default).
+
+
+#### Specifying arguments by name or position
+
+Arguments to a function can be specified either by name or by position. For example, the arithmetic mean function has arguments named and ordered as `mean(x, trim = 0, na.rm = FALSE)`. We could express the same just using the argument positions and writing `mean(<vector_name>, 0, FALSE)`; R would infer which arguments the values belong to based on their position inside the brackets. Alternatively, we could combine the name and position specifications, e.g., we could specify the data argument by placing it in the first position, and then use names to specify the two controls: `mean(<vector_name>, na.rm = FALSE, trim = 0)`. Note that if we use names to specify the arguments, their position is irrelevant.
+
+
+#### Arbitrary number of arguments using dot-dot-dot
+
+Many functions in R take an arbitrary number of inputs which are represented using a special *dot-dot-dot* argument. This comes useful, for instance, if our function wraps another function into which we need to pass arguments. The following example is a function that passes a number of R expression to the *system.time* function, and ultimately returns the CPU time it took to evaluate those expressions.
+
+```{r eval = FALSE}
+# Define the function
+
+time_elapsed <- function(...) {
+   t <- system.time(eval(...))
+   t[["user.self"]]
+}
+
+# Multiple arguments can be listed in the brackets in various ways. Notice the use of
+# ({...}) enclosure. Also note the use of semi-colons to separate the arguments; they are
+# optional if each argument is on a separate line.
+
+time_elapsed({ x <- runif(1e6); y <- runif(1e7); z <- runif(1e8) })
+
+time_elapsed({
+   x <- runif(1e6)
+   y <- runif(1e7)
+   z <- runif(1e8)
+})
+```
+
+
+### Transformation vs side-effect functions
+
+With a *transformation function*, an object is passed into the function which modifies it and returns another object. With a *side-effect function*, an object is passed into the function but not transformed by it. Instead, the function performs an action on the object (drawing a plot, saving a file, etc.) and then invisibly returns it. Note that knowing what object a function returns can be particularly important when we use it in *magrittr* pipelines.
+```{r}
+rm(list = ls())
+x <- c("1", "2", "3")
+
+```
+
+
+### The *return* statement
+
+Typically, the value returned by the function is the outcome of the very last statement the function evaluates. However, we can explicitly state what we want the function return by using the *return()* statement. This is especially useful if our function contains long and complex conditional statements, in which case we can use so called *early return* if a condition holds to complete the execution faster due to not having to do the long parts.
+```{r eval = FALSE}
+f <- function() {
+   if (x) {
+      return(something short) # Early return if 'x' holds
+   } else { # Something longer if 'x' doesn't hold
+      do
+      something
+      that
+      takes
+      many
+      steps
+   }
+}
+```
+
+
+### Environment and scoping
+
+Scoping describes how R looks up values by name. In the case of functions, if a name (of an object or function argument) isn't defined locally (inside the function), the function will look at a higher level. If the object isn't found at a higher level, an error occurs.
+
+Note that scoping describes only where to look for a value, not when. The function can return different values depending when we called it with respect to the values that are input into it (see the examples below). Therefore, any function should never depend on values other than the arguments.
+```{r error = TRUE}
+rm(list = ls())
+f <- function() { print(x) }; f()          # Argument undefined locally or higher
+f <- function() { print(x) }; x = 10; f()  # Argument defined in the global environment
+f <- function() { x = 5; print(x) }; f()   # Argument defined locally inside the function
+```
+
+
+### Constraining function arguments
+
+A typical mistake when calling a function is to supply an invalid input. To avoid this problem, constraints on inputs should be made explicit. One option would be to use the *stop* function with an *if* statement, but that can get too verbose pretty quickly, so it is easier to use *stopifnot* function instead.
+```{r error = TRUE}
+x <- 1:5; y = 1:3
+
+f <- function(x) {
+   if ( length(x) != length(y) ) { stop("Vectors of different length", call. = FALSE) }
+   print(x %*% y)
+}
+
+f(x)
+
+g <- function(x) {
+   stopifnot( length(x) == length(y) )
+   print(x %*% y)
+}
+
+g(x)
+```
+Note that *stop* allows to customize the error message, while *stopifnot* doesn't seem to have that option.
+
+

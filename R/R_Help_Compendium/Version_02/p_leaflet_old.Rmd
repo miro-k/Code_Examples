@@ -1,0 +1,154 @@
+
+# Interactive maps with *leaflet* (OLD VERSION)
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+# funcdir <- "F:/Examples/R/Functions"
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+```
+```
+
+Leaflet-related links:
+
+* See <https://rstudio.github.io/leaflet/> for an example and help.
+* For additional map providers, see <https://leaflet-extras.github.io/leaflet-providers/preview/>.
+* See <https://www150.statcan.gc.ca/n1/en/type/reference#geographicfilesanddocumentation> for geography-related info from Statistics Canada.
+
+Data links:
+
+* Climate and weather in Canada: <http://climate.weather.gc.ca/index_e.html>
+
+Use the built-in data frame *quakes* to generate a practice data frame:
+```{r}
+df <- quakes[1:100, ] %>%
+   as_tibble %>% 
+   add_count(stations) %>% rename(nquakes = n) %>% 
+   mutate(cat_quakes = cut(nquakes,
+                           labels = paste("freq", 1:5, sep = "_"),
+                           breaks = c(-Inf, 3, c(4,6), 8 ,Inf),
+                           ordered_results = TRUE),
+          bad_quake = ifelse(nquakes > 5, "Y", "N"),
+          stations = paste0("Station #", stations))
+
+glimpse(df, width = 70)
+```
+
+Summary statistics:
+```{r echo = FALSE}
+# df %>% summary
+
+df %>%
+   select_if(is.numeric) %>%
+   summarize_all(.funs = c(Mean = mean,
+                           Median = median,
+                           Min = min,
+                           Max = max)) %>% 
+   gather(key = STUB_SUFFIX, value = VALUE) %>% 
+   separate(STUB_SUFFIX, into = c("STUB", "SUFFIX"), sep = "_") %>% 
+   spread(SUFFIX, VALUE) %>% 
+   mutate_at(.vars = vars(-STUB), .funs = function(x) {round(x,1)} ) %>% 
+   rename(Variable = STUB) %>% 
+   print.data.frame()
+
+tbl_freq(df$cat_quakes) %>%
+   arrange(desc(freq)) %>%
+   print.data.frame(digits = 3)
+
+tbl_freq(df$bad_quake) %>%
+   arrange(desc(freq)) %>%
+   print.data.frame(digits = 3)
+```
+
+
+## Base maps
+
+There are well over 100 maps that can be used from the leaflet package. Their names can be obtained using *names(provider)* function; the maps can be then evoked using the function *addProviderTiles()*. In the example below, let's select all maps from a specific provider, *OpenStreetMap*:
+```{r}
+tibble(prvdr = names(providers)) %>% filter(str_detect(prvdr, "OpenStreetMap"))
+```
+
+Other maps possibly of interest are listed below. Note that these are to be used as arguments in the *addProviderTiles* function.
+```{r}
+# addProviderTiles("OpenStreetMap.HOT")
+# addProviderTiles("CartoDB")
+# addProviderTiles(providers$OpenTopoMap, group = "Topo")
+# addProviderTiles(providers$Esri.WorldTopoMap, group = "Esri")
+# addProviderTiles(providers$Stamen.Toner, group = "Toner")
+```
+
+
+## Selected options for the maps
+
+
+### Zooming restrictions
+
+Render a specific base map (black & white one from *Open Street Map*). Note that there are no custom options specified except the one for minimum and maximum zooming:
+```{r}
+leaflet( options = leafletOptions(minZoom = 0, maxZoom = 5) ) %>% 
+   addProviderTiles("OpenStreetMap.BlackAndWhite")
+```
+
+
+### Setting the initial view
+
+Now, render a map and fit it within specific bounds using *fitBounds* function. THe bounds are specified by providing the longitude and latitude coordinates for two corners that will define the "box".
+```{r}
+leaflet( ) %>% 
+   addProviderTiles("OpenStreetMap.HOT") %>%
+   fitBounds( lng1 = min(df$long), lat1 = min(df$lat),
+              lng2 = max(df$long), lat2 = max(df$lat))
+```
+
+Instead of defining the bounds, we have an option to set the initial view at a specific location (defined by its longitude and latitude) and zoom.
+```{r}
+leaflet() %>%
+   addProviderTiles(providers$Esri.WorldTopoMap, group = "Esri") %>%
+   setView(lng = -76.395124, lat = 44.678639, zoom = 15)
+```
+
+
+## Putting data on maps
+
+There are many graphic elements and layers that can be utilized to put data on the map. For more information see, e.g., the help page for the *addControl* function.
+
+
+### Pop-up markers
+
+See more examples at <https://rstudio.github.io/leaflet/markers.html>. In the following example, we will use the *addMarkers* function to:
+
+* Place pin markers in the location (specified as the longitude and latitude) of the geo-stations that collected the *quakes* data.
+* For each location generate a pop-up with the number of earthquakes counted for that location.
+* Each location is a geo-station, so we label it with its station number.
+
+```{r}
+leaflet() %>%
+   addProviderTiles("OpenStreetMap.HOT") %>%
+   addMarkers( lng = df$long, lat = df$lat,
+               popup = as.character(df$nquakes),
+               label = as.character(df$stations) )
+```
+
+
+
+
+
+
+```{r}
+leaflet() %>%
+   addProviderTiles("OpenStreetMap.BlackAndWhite") %>%
+   addCircleMarkers( lng = df$long, lat = df$lat,
+                     radius = df$nquakes*1.5
+   )
+```
+
+

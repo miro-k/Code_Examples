@@ -1,0 +1,89 @@
+
+# Estimation and post-estimation of binary logit/probit models
+
+```{r warning = FALSE, message = FALSE, results = 'hide', echo = FALSE}
+rm(list = ls())
+
+datadir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Data"
+#datadir <- "F:/Examples/R/Data"
+
+funcdir <- "C:/Users/MK/Documents/pCloud_Sync_offline/Examples/R/Functions"
+# funcdir <- "F:/Examples/R/Functions"
+paste(funcdir, c("tbl_freq.R",
+                 "tbl_str.R",
+                 "tbl_sum.R",
+                 "timer.R",
+                 "keep_obj.R",
+                 "list_to_array.R",
+                 "print_docs.R"), sep = "/") %>%
+   lapply(., source) %>%
+   invisible
+```
+
+Let's use sample data on cars to illustrate the estimation and post-estimation functions:
+```{r warning = FALSE, message = FALSE}
+df <- read_csv(paste(datadir, "auto_dta.csv", sep = "/")) %>% 
+   mutate(
+      foreign = as.factor(foreign),
+      ln_price = log(price),
+      heavy = ifelse(weight > mean(weight), 1, 0)
+   )
+
+df %>% str
+df %>% tbl_str(n_examples = 1)
+```
+
+
+## Using *glm()* to estimate the models
+
+The function *glm()* from the native R *stats* package is used to fit generalized linear models, specified by giving a symbolic description of the linear predictor and a description of the error distribution. In the following example we specify the model as *binomial-logit*.
+```{r}
+logit <- glm( foreign ~ ln_price + mpg + heavy,
+              data = df,
+              family = binomial(link = "logit") )
+
+broom::tidy(logit) # The tidy function produces a nice table of the results
+
+# An alternative way of describing the model. This takes the dependent variable 'foreign'
+# and regresses it on all the remaining variables in what's specified in 'data = ...')
+
+logit <- glm( foreign ~ .,
+              data = df[c("foreign", "ln_price", "mpg", "heavy")],
+              family = binomial(link = "logit") )
+```
+
+By changing the *link* in the *binomial family* we estimate a *probit* model.
+```{r}
+probit <- glm( foreign ~ .,
+               data = df[c("foreign", "ln_price", "mpg", "heavy")],
+               family = binomial(link = "probit") )
+tidy(probit)
+```
+
+
+## Calculate marginal effects
+
+Using the *margins* package to get marginal effects, average marginal effects, partial derivatives, etc. The following code shows how to get average marginal effects, their standard errors, z-stats, etc.
+```{r}
+me_logit <- margins::margins(logit)
+summary(me_logit)
+
+me_probit <- margins::margins(probit)
+summary(me_probit)
+```
+
+The interpretation of (average) marginal effects is most of the time straightforward, except when it comes to how to interpret a marginal effect of a log-transform of a variable. It appears, that we can just divide the marginal effect of the natural log of a variable by 100 (i.e., $me(log(x))/100$) to find out how much $Pr(y = 1)$ increases/decreases when the variable $x$ changes by 1%. Similarly, the std. error and confidence interval bounds also need to be divided by 100, while the z-statistic and p-value stay as they are. See a more detailed discussion of the topic at <"https://stats.stackexchange.com/questions/147612/interpretation-of-marginal-effects-in-logit-model-with-log-timesindependent-va">
+
+```{r}
+me_logit_tab <- summary(me_logit)
+round( me_logit_tab[2, c(2:3,6:7)]/100, 6) # Divide me(ln_price)/100
+```
+
+
+## Calculate odds ratios
+
+```{r}
+odds_logit <- round(exp(cbind(odds = coef(logit), confint(logit))), 3)
+odds_logit
+```
+
